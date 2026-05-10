@@ -1,0 +1,16 @@
+{
+  "name": "ber-car-platform",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "client:dev": "npm --prefix client run dev",
+    "client:build": "npm --prefix client run build",
+    "client:preview": "npm --prefix client run preview",
+    "server:dev": "npm --prefix server run dev",
+    "server:start": "npm --prefix server run start"
+  }
+}
