@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { createApp } from "./app.js";
+import { startTelegramHealthCheck } from "./services/telegram.js";
 
 dotenv.config({ quiet: true });
 
@@ -9,3 +10,5 @@ const app = createApp();
 app.listen(port, "127.0.0.1", () => {
   console.log(`Ber Car API is running on http://127.0.0.1:${port}`);
 });
+
+startTelegramHealthCheck();

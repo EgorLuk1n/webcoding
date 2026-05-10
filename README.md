@@ -10,7 +10,7 @@ Full-stack проект для автосервиса Ber Car:
 
 - Публичный лендинг берет контент из API.
 - Форма записи сохраняет данные клиента, автомобиль, тип услуги, желаемые дату/время и комментарии в PostgreSQL.
-- Админка: `/admin/login` и `/admin/dashboard`.
+- Скрытая админка: `/bercar-control/login` и `/bercar-control/dashboard`.
 - Авторизация администратора через JWT в `httpOnly` cookie.
 - Protected API routes для админки.
 - CRUD для `content_blocks`, `services`, `problems`, `contacts`.
@@ -75,7 +75,13 @@ Copy-Item .env.example server/.env
 ```env
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_ADMIN_CHAT_ID=...
+TELEGRAM_PROXY_URL=socks5://user:password@host:1080
+TELEGRAM_PROXY_URL_2=https://user:password@host:8443
+TELEGRAM_PROXY_URL_3=http://user:password@host:8080
+TELEGRAM_PROXY_ROTATION=true
 ```
+
+Proxy-поля необязательные. Если Telegram недоступен напрямую, backend попробует proxy по очереди. Для proxy-режима на production установите пакет `undici` в server dependencies, чтобы работал `ProxyAgent`.
 
 5. Перезапустите backend:
 
@@ -83,9 +89,10 @@ TELEGRAM_ADMIN_CHAT_ID=...
 pm2 restart ber-car-api
 ```
 
-6. Проверьте уведомление из админки кнопкой `Telegram` в блоке заявок или через protected endpoint после входа:
+6. Проверьте статус и уведомление через protected endpoints после входа:
 
 ```bash
+curl http://127.0.0.1:4000/api/admin/system/telegram-status
 curl -X POST http://127.0.0.1:4000/api/admin/test-telegram-notification
 ```
 
@@ -104,7 +111,7 @@ npm run client:dev
 ## Адреса
 
 - Сайт: http://127.0.0.1:5173/
-- Админка: http://127.0.0.1:5173/admin/login
+- Админка: http://127.0.0.1:5173/bercar-control/login
 - API healthcheck: http://127.0.0.1:4000/api/health
 
 ## Доступ в админку после seed
@@ -140,6 +147,7 @@ npm run client:dev
 - `PATCH /api/admin/leads/:id`
 - `DELETE /api/admin/leads/:id`
 - `GET /api/admin/leads/:id/calendar.ics`
+- `GET /api/admin/system/telegram-status`
 - `POST /api/admin/test-telegram-notification`
 
 ## Логика записи
@@ -153,3 +161,11 @@ npm run client:dev
 ## Примечания
 
 В dev-режиме клиент ходит в API через Vite proxy (`/api` -> `http://127.0.0.1:4000`). Для отдельного API-домена можно создать `client/.env` и указать `VITE_API_URL`.
+
+## Production hardening
+
+- Пример Nginx-конфига: `deploy/nginx.ber-car.conf`.
+- Backend включает `trust proxy`, secure headers, CORS whitelist, JSON body limit, structured request/error logs.
+- Cookies администратора: `httpOnly`, `sameSite=strict`, `secure` в production.
+- Login защищен in-memory rate limit/cooldown; для нескольких backend-инстансов лучше вынести rate limit в Redis/Nginx.
+- Публичный UI не содержит ссылок на админку. Скрытый вход открывается 5 кликами по логотипу.

@@ -79,9 +79,9 @@ const defaultProblems = [
 
 const heroBenefits = [
   "Узкая специализация на VAG",
-  "Оригинальные запчасти и аналоги",
+  "Диагностика перед ремонтом",
+  "Запчасти под бюджет",
   "Без навязанных работ",
-  "Прямое общение с мастером",
 ];
 
 const whyPoints = [
@@ -182,18 +182,18 @@ function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  if (path === "/admin/login") {
+  if (path === "/bercar-control/login") {
     return <LoginPage navigate={navigate} />;
   }
 
-  if (path === "/admin/dashboard") {
+  if (path === "/bercar-control/dashboard") {
     return <AdminDashboard navigate={navigate} />;
   }
 
-  return <PublicLanding navigate={navigate} />;
+  return <PublicLanding navigate={navigate} path={path} />;
 }
 
-function PublicLanding({ navigate }) {
+function PublicLanding({ navigate, path }) {
   const [site, setSite] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -202,6 +202,7 @@ function PublicLanding({ navigate }) {
   const [leadStatus, setLeadStatus] = useState({ type: "", text: "" });
   const [slots, setSlots] = useState([]);
   const [slotsStatus, setSlotsStatus] = useState("");
+  const [logoClicks, setLogoClicks] = useState(0);
 
   useEffect(() => {
     api
@@ -226,8 +227,36 @@ function PublicLanding({ navigate }) {
   }));
   const problems = site?.problems?.length ? site.problems : defaultProblems;
   const phoneHref = findContactHref(contacts, "phone");
+  const visibleSlots = slots.filter((slot) => !slot.isPast);
+  const hasSlots = !slotsStatus && visibleSlots.length > 0;
+  const noSlotsToday = !slotsStatus && lead.preferred_date === getTodayDate() && visibleSlots.length === 0;
+  const leadReady = isLeadReady(lead);
+  const isHome = path === "/";
+  const isServicesPage = path === "/services";
+  const isBookingPage = path === "/booking";
+  const isContactsPage = path === "/contacts";
 
   const closeMenu = () => setMenuOpen(false);
+  const goToSection = (sectionId) => {
+    closeMenu();
+    navigate("/");
+    window.setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+  };
+  const handleLogoClick = (event) => {
+    event.preventDefault();
+    const nextClicks = logoClicks + 1;
+    setLogoClicks(nextClicks);
+
+    if (nextClicks >= 5) {
+      setLogoClicks(0);
+      navigate("/bercar-control/login");
+      return;
+    }
+
+    navigate("/");
+  };
 
   useEffect(() => {
     if (!lead.preferred_date) {
@@ -242,7 +271,10 @@ function PublicLanding({ navigate }) {
       .getBookingSlots(lead.preferred_date)
       .then((payload) => {
         if (!cancelled) {
-          setSlots(payload.slots || []);
+          setSlots((payload.slots || []).map((slot) => ({
+            ...slot,
+            isPast: isPastPreferredSlot(lead.preferred_date, slot.time),
+          })));
           setSlotsStatus("");
         }
       })
@@ -288,17 +320,17 @@ function PublicLanding({ navigate }) {
     <main className="page">
       <header className="site-header">
         <div className="container nav">
-          <a href="#top" className="brand" aria-label="Ber Car" onClick={closeMenu}>
+          <a href="/" className="brand" aria-label="Ber Car" onClick={handleLogoClick}>
             <img src={berCarLogo} alt="" />
             <span>Ber Car</span>
           </a>
 
           <nav className={`nav-links ${menuOpen ? "is-open" : ""}`} aria-label="Основная навигация">
-            <a href="#services" onClick={closeMenu}>Услуги</a>
-            <a href="#approach" onClick={closeMenu}>Подход</a>
-            <a href="#problems" onClick={closeMenu}>Проблемы</a>
-            <a href="#contacts" onClick={closeMenu}>Контакты</a>
-            <button type="button" onClick={() => navigate("/admin/login")}>Админка</button>
+            <button type="button" onClick={() => { closeMenu(); navigate("/"); }}>Главная</button>
+            <button type="button" onClick={() => { closeMenu(); navigate("/services"); }}>Услуги</button>
+            <button type="button" onClick={() => goToSection("approach")}>Подход</button>
+            <button type="button" onClick={() => { closeMenu(); navigate("/booking"); }}>Запись</button>
+            <button type="button" onClick={() => { closeMenu(); navigate("/contacts"); }}>Контакты</button>
           </nav>
 
           <div className="nav-actions">
@@ -320,23 +352,22 @@ function PublicLanding({ navigate }) {
 
       {error ? <div className="api-warning">API: {error}</div> : null}
 
-      <section className="hero" id="top">
+      {isHome ? <section className="hero" id="top">
         <div className="container hero-inner">
           <div className="hero-copy">
             <p className="eyebrow">VAG сервис в Калуге</p>
-            <h1>Профессиональный ремонт VAG автомобилей в Калуге</h1>
-            <p className="hero-subtitle">Решаем сложные неисправности и делаем как для себя</p>
+            <h1>Профессиональный ремонт VAG в Калуге</h1>
+            <p className="hero-subtitle">Диагностика, обслуживание и ремонт без лишних работ</p>
             <p className="hero-lead">
-              Volkswagen, Audi, Škoda, SEAT — точная диагностика, качественный ремонт и подбор
-              запчастей без лишних работ.
+              Volkswagen, Audi, Škoda, SEAT — диагностика, обслуживание и ремонт без лишних работ.
             </p>
 
             <div className="hero-actions" aria-label="Основные действия">
-              <a href="#contacts" className="button button-primary">
+              <button type="button" className="button button-primary" onClick={() => navigate("/booking")}>
                 Записаться
                 <ArrowRight size={18} aria-hidden="true" />
-              </a>
-              <a href="#services" className="button button-secondary">Смотреть услуги</a>
+              </button>
+              <button type="button" className="button button-secondary" onClick={() => navigate("/services")}>Смотреть услуги</button>
             </div>
 
             <div className="hero-benefits">
@@ -350,26 +381,12 @@ function PublicLanding({ navigate }) {
           </div>
 
           <div className="hero-visual" aria-hidden="true">
-            <div className="hero-car-scene">
-              <div className="hero-car-card">
-                <img src={berCarLogo} alt="" />
-                <div className="hero-card-copy">
-                  <span>Ber Car workshop</span>
-                  <strong>VAG diagnostics</strong>
-                </div>
-              </div>
-              <div className="hero-tech-card">
-                <span>Слот сегодня</span>
-                <strong>60 мин</strong>
-              </div>
-              <span className="hero-badge top">Volkswagen / Audi</span>
-              <span className="hero-badge bottom">Запись по слотам</span>
-            </div>
+            <div className="hero-photo" />
           </div>
         </div>
-      </section>
+      </section> : null}
 
-      <section className="section why" id="why">
+      {isHome ? <section className="section why" id="why">
         <div className="container why-grid">
           <div>
             <p className="eyebrow">Почему Ber Car</p>
@@ -390,9 +407,9 @@ function PublicLanding({ navigate }) {
             </div>
           </div>
         </div>
-      </section>
+      </section> : null}
 
-      <section className="section services" id="services">
+      {(isHome || isServicesPage) ? <section className={`section services ${isServicesPage ? "route-section" : ""}`} id="services">
         <div className="container">
           <SectionHeading
             eyebrow="Услуги"
@@ -415,9 +432,9 @@ function PublicLanding({ navigate }) {
             })}
           </div>
         </div>
-      </section>
+      </section> : null}
 
-      <section className="section approach" id="approach">
+      {(isHome || isServicesPage) ? <section className="section approach" id="approach">
         <div className="container approach-grid">
           <div className="approach-copy">
             <p className="eyebrow">Подход</p>
@@ -429,7 +446,7 @@ function PublicLanding({ navigate }) {
           </div>
 
           <div className="steps">
-            {["Разговор с мастером", "Диагностика и проверка", "Понятная смета", "Качественный ремонт"].map(
+            {["Заявка", "Созвон", "Диагностика", "Согласование", "Ремонт", "Выдача авто"].map(
               (step, index) => (
                 <div className="step" key={step}>
                   <span>{String(index + 1).padStart(2, "0")}</span>
@@ -439,9 +456,9 @@ function PublicLanding({ navigate }) {
             )}
           </div>
         </div>
-      </section>
+      </section> : null}
 
-      <section className="section problems" id="problems">
+      {isHome ? <section className="section problems" id="problems">
         <div className="container problems-grid">
           <div>
             <p className="eyebrow">Какие проблемы решаем</p>
@@ -457,9 +474,9 @@ function PublicLanding({ navigate }) {
             ))}
           </ul>
         </div>
-      </section>
+      </section> : null}
 
-      <section className="section parts">
+      {isHome ? <section className="section parts">
         <div className="container parts-inner">
           <p className="eyebrow">{blocks.parts?.subtitle || "Запчасти"}</p>
           <h2>{blocks.parts?.title || "Оригинальные запчасти и качественные аналоги"}</h2>
@@ -468,14 +485,36 @@ function PublicLanding({ navigate }) {
               "Работаем с оригинальными запчастями и качественными аналогами. Подбираем оптимальный вариант под задачу и бюджет."}
           </p>
         </div>
-      </section>
+      </section> : null}
 
-      <section className="section contacts" id="contacts">
+      {isHome ? <section className="section faq">
+        <div className="container faq-grid">
+          <div>
+            <p className="eyebrow">FAQ</p>
+            <h2>Частые вопросы владельцев VAG</h2>
+          </div>
+          <div className="faq-list">
+            {[
+              ["Можно приехать только на диагностику?", "Да. Сначала находим причину, затем обсуждаем ремонт и запчасти."],
+              ["Вы ставите аналоги?", "Да, если аналог качественный и подходит под задачу. Всегда объясняем разницу."],
+              ["Слот на сайте точно подтвержден?", "Нет. Вы выбираете желаемое время, администратор подтверждает запись после звонка."],
+              ["Беретесь за сложные ошибки?", "Да. Мы специализируемся на VAG и работаем с нестабильными, плавающими неисправностями."],
+            ].map(([question, answer]) => (
+              <article key={question}>
+                <h3>{question}</h3>
+                <p>{answer}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section> : null}
+
+      {(isHome || isBookingPage || isContactsPage) ? <section className={`section contacts ${(isBookingPage || isContactsPage) ? "route-section" : ""}`} id="contacts">
         <div className="container contact-grid">
           <div className="contact-copy">
-            <p className="eyebrow">Заявка</p>
-            <h2>Опишите задачу — мастер подскажет следующий шаг.</h2>
-            <p>Оставьте контакты, модель автомобиля и симптомы. Мы свяжемся с вами и сориентируем по диагностике.</p>
+            <p className="eyebrow">{isContactsPage ? "Контакты" : "Запись"}</p>
+            <h2>{isContactsPage ? "Ber Car в Калуге" : "Выберите удобное время для диагностики или ремонта."}</h2>
+            <p>{isContactsPage ? "Свяжитесь с мастером напрямую или оставьте заявку на отдельной странице записи." : "Вы выбираете желаемое время. Администратор подтвердит запись после звонка."}</p>
 
             <div className="contact-items">
               {contacts.map((contact) => (
@@ -490,7 +529,7 @@ function PublicLanding({ navigate }) {
             </div>
           </div>
 
-          <form className="lead-form" onSubmit={submitLead}>
+          {!isContactsPage ? <form className="lead-form" onSubmit={submitLead}>
             <label>
               Имя клиента
               <input
@@ -596,7 +635,7 @@ function PublicLanding({ navigate }) {
             <div className="slot-picker">
               <span>Желаемое время визита</span>
               <div className="slot-grid">
-                {slots.map((slot) => (
+                {visibleSlots.map((slot) => (
                   <button
                     type="button"
                     className={lead.preferred_time === slot.time ? "is-selected" : ""}
@@ -609,6 +648,8 @@ function PublicLanding({ navigate }) {
                 ))}
               </div>
               {slotsStatus ? <small>{slotsStatus}</small> : null}
+              {noSlotsToday ? <small>На сегодня свободных слотов больше нет</small> : null}
+              {!slotsStatus && !noSlotsToday && !hasSlots ? <small>Свободных слотов на выбранную дату нет</small> : null}
               <input type="hidden" value={lead.preferred_time} required />
             </div>
             <label className="lead-form-wide">
@@ -628,27 +669,32 @@ function PublicLanding({ navigate }) {
               />
               <span>Согласен на обработку персональных данных</span>
             </label>
-            <button type="submit" className="button button-primary">
+            <button type="submit" className="button button-primary" disabled={!leadReady}>
               Отправить заявку на запись
               <ArrowRight size={18} aria-hidden="true" />
             </button>
             {leadStatus.text ? <p className={`form-status ${leadStatus.type}`}>{leadStatus.text}</p> : null}
-          </form>
+          </form> : <div className="map-placeholder">
+            <MapPin size={26} aria-hidden="true" />
+            <strong>Калуга</strong>
+            <span>Точный адрес можно указать в контактах админки.</span>
+            <button type="button" className="button button-primary" onClick={() => navigate("/booking")}>Записаться</button>
+          </div>}
         </div>
-      </section>
+      </section> : null}
 
-      <section className="final-cta">
+      {isHome ? <section className="final-cta">
         <div className="container final-cta-inner">
           <div>
             <p className="eyebrow">Не откладывайте ремонт</p>
             <h2>Чем раньше найдена проблема — тем дешевле её решить.</h2>
           </div>
-          <a href="#contacts" className="button button-primary">
+          <button type="button" className="button button-primary" onClick={() => navigate("/booking")}>
             Записаться на диагностику
             <ArrowRight size={18} aria-hidden="true" />
-          </a>
+          </button>
         </div>
-      </section>
+      </section> : null}
     </main>
   );
 }
@@ -675,7 +721,7 @@ function LoginPage({ navigate }) {
 
     try {
       await api.login(form);
-      navigate("/admin/dashboard");
+      navigate("/bercar-control/dashboard");
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -735,13 +781,13 @@ function AdminDashboard({ navigate }) {
     api
       .me()
       .then((payload) => setAdmin(payload.admin))
-      .catch(() => navigate("/admin/login"))
+      .catch(() => navigate("/bercar-control/login"))
       .finally(() => setAuthLoading(false));
   }, [navigate]);
 
   const logout = async () => {
     await api.logout();
-    navigate("/admin/login");
+    navigate("/bercar-control/login");
   };
 
   if (authLoading) {
@@ -1326,7 +1372,37 @@ function contactIcon(type) {
 }
 
 function getTodayDate() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isPastPreferredSlot(date, time) {
+  if (!date || !time) {
+    return true;
+  }
+
+  const slotStart = new Date(`${date}T${time}:00`);
+  const earliest = new Date(Date.now() + 60 * 60 * 1000);
+  return slotStart < earliest;
+}
+
+function isLeadReady(lead) {
+  return Boolean(
+    lead.client_name &&
+      lead.client_phone &&
+      lead.car_brand &&
+      lead.car_model &&
+      lead.car_year &&
+      lead.service_type &&
+      lead.problem_description &&
+      lead.preferred_date &&
+      lead.preferred_time &&
+      lead.personal_data_agreement &&
+      !isPastPreferredSlot(lead.preferred_date, lead.preferred_time),
+  );
 }
 
 function formatInputDate(value) {

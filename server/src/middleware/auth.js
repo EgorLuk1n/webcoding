@@ -20,9 +20,10 @@ export function requireAdmin(req, res, next) {
 export function adminCookieOptions() {
   return {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
     maxAge: 1000 * 60 * 60 * 24 * 7,
+    path: "/",
   };
 }
 

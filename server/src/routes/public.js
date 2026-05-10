@@ -17,14 +17,23 @@ const serviceTypes = new Set([
 
 const bookingTimes = [
   "09:00",
+  "09:30",
   "10:00",
+  "10:30",
   "11:00",
+  "11:30",
   "12:00",
+  "12:30",
   "13:00",
+  "13:30",
   "14:00",
+  "14:30",
   "15:00",
+  "15:30",
   "16:00",
+  "16:30",
   "17:00",
+  "17:30",
   "18:00",
 ];
 
@@ -59,6 +68,10 @@ publicRouter.get("/booking-slots", async (req, res, next) => {
       return res.status(400).json({ message: "Укажите дату в формате YYYY-MM-DD" });
     }
 
+    if (isPastDate(date)) {
+      return res.json({ date, slots: [] });
+    }
+
     const busy = await query(
       `SELECT id, scheduled_start_at, scheduled_end_at
        FROM leads
@@ -71,7 +84,9 @@ publicRouter.get("/booking-slots", async (req, res, next) => {
       [toMoscowIso(date, "00:00"), toMoscowIso(date, "23:59")],
     );
 
-    const slots = bookingTimes.map((time) => {
+    const slots = bookingTimes
+      .filter((time) => !isPastSlot(date, time))
+      .map((time) => {
       const start = new Date(toMoscowIso(date, time));
       const end = addMinutes(start, 60);
       const conflict = busy.find((item) => {
@@ -119,6 +134,10 @@ publicRouter.post("/leads", async (req, res, next) => {
 
     if (!serviceTypes.has(lead.service_type)) {
       return res.status(400).json({ message: "Выберите корректный тип услуги" });
+    }
+
+    if (isPastSlot(lead.preferred_date, lead.preferred_time)) {
+      return res.status(400).json({ message: "Нельзя выбрать прошедшее время." });
     }
 
     const busy = await isSlotBusy(lead.preferred_date, lead.preferred_time);
@@ -230,4 +249,23 @@ function toMoscowIso(date, time) {
 
 function addMinutes(date, minutes) {
   return new Date(date.getTime() + minutes * 60 * 1000);
+}
+
+function getMoscowDateString(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Moscow",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function isPastDate(date) {
+  return date < getMoscowDateString();
+}
+
+function isPastSlot(date, time) {
+  const start = new Date(toMoscowIso(date, time));
+  const earliest = addMinutes(new Date(), 60);
+  return start < earliest;
 }

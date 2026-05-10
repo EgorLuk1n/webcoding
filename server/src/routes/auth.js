@@ -3,10 +3,11 @@ import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { query } from "../db/pool.js";
 import { adminCookieOptions, cookieName, requireAdmin } from "../middleware/auth.js";
+import { audit, loginRateLimit, recordLoginFailure, recordLoginSuccess } from "../middleware/security.js";
 
 export const authRouter = Router();
 
-authRouter.post("/login", async (req, res, next) => {
+authRouter.post("/login", loginRateLimit, async (req, res, next) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
@@ -21,6 +22,7 @@ authRouter.post("/login", async (req, res, next) => {
     );
 
     if (!admin || !(await bcrypt.compare(password, admin.password_hash))) {
+      recordLoginFailure(req);
       return res.status(401).json({ message: "Неверный email или пароль" });
     }
 
@@ -34,14 +36,18 @@ authRouter.post("/login", async (req, res, next) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
     );
 
+    recordLoginSuccess(req);
     res.cookie(cookieName, token, adminCookieOptions());
+    req.admin = { id: admin.id, email: admin.email };
+    audit(req, "login");
     return res.json({ admin: { id: admin.id, email: admin.email } });
   } catch (error) {
     return next(error);
   }
 });
 
-authRouter.post("/logout", (req, res) => {
+authRouter.post("/logout", requireAdmin, (req, res) => {
+  audit(req, "logout");
   res.clearCookie(cookieName, adminCookieOptions());
   return res.status(204).send();
 });

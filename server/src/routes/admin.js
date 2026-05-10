@@ -1,8 +1,14 @@
 import { Router } from "express";
 import { query } from "../db/pool.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { audit } from "../middleware/security.js";
 import { buildLeadIcs } from "../services/calendar.js";
-import { formatLeadNotification, notifyAdmin } from "../services/telegram.js";
+import {
+  formatLeadNotification,
+  getTelegramStatus,
+  notifyAdmin,
+  sendTelegramMessage,
+} from "../services/telegram.js";
 
 const resources = {
   "content-blocks": {
@@ -140,10 +146,13 @@ adminRouter.patch("/leads/:id", async (req, res, next) => {
     );
 
     if (updates.status === "confirmed") {
+      audit(req, "confirm_booking", { leadId: lead.id });
       notifyAdmin(formatLeadNotification("✅ Запись подтверждена Ber Car", lead));
     } else if (updates.status === "rescheduled") {
+      audit(req, "reschedule_booking", { leadId: lead.id });
       notifyAdmin(formatLeadNotification("↪️ Запись перенесена Ber Car", lead));
     } else if (updates.status === "cancelled") {
+      audit(req, "cancel_booking", { leadId: lead.id });
       notifyAdmin(formatLeadNotification("❌ Запись отменена Ber Car", lead));
     }
 
@@ -161,6 +170,7 @@ adminRouter.delete("/leads/:id", async (req, res, next) => {
       return res.status(404).json({ message: "Заявка не найдена" });
     }
 
+    audit(req, "delete_lead", { leadId: req.params.id });
     return res.status(204).send();
   } catch (error) {
     return next(error);
@@ -188,9 +198,18 @@ adminRouter.get("/leads/:id/calendar.ics", async (req, res, next) => {
   }
 });
 
-adminRouter.post("/test-telegram-notification", async (req, res) => {
-  notifyAdmin("Тестовое уведомление Ber Car");
-  return res.json({ ok: true });
+adminRouter.get("/system/telegram-status", (req, res) => {
+  return res.json(getTelegramStatus());
+});
+
+adminRouter.post("/test-telegram-notification", async (req, res, next) => {
+  try {
+    const result = await sendTelegramMessage("Тестовое уведомление Ber Car");
+    audit(req, "test_telegram_notification");
+    return res.json({ ok: true, ...result, status: getTelegramStatus() });
+  } catch (error) {
+    return res.status(502).json({ ok: false, message: error.message, status: getTelegramStatus() });
+  }
 });
 
 adminRouter.get("/:resource", async (req, res, next) => {
@@ -273,6 +292,7 @@ adminRouter.delete("/:resource/:id", async (req, res, next) => {
       return res.status(404).json({ message: "Запись не найдена" });
     }
 
+    audit(req, "delete_resource", { resource: req.params.resource, id: req.params.id });
     return res.status(204).send();
   } catch (error) {
     return next(error);

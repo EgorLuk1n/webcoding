@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#050506"/>
+  <rect x="70" y="70" width="1060" height="490" rx="42" fill="#111114"/>
+  <path d="M140 390h620l-62-150c-18-44-52-70-108-70H330c-56 0-90 26-108 70l-82 150Z" fill="#23242a"/>
+  <path d="M180 390h520" stroke="#ff6336" stroke-width="22" stroke-linecap="round"/>
+  <text x="760" y="270" fill="#fff" font-family="Arial, sans-serif" font-size="74" font-weight="700">Ber Car</text>
+  <text x="760" y="345" fill="#c7c8cc" font-family="Arial, sans-serif" font-size="34">VAG сервис в Калуге</text>
+  <circle cx="250" cy="410" r="44" fill="#fff"/>
+  <circle cx="610" cy="410" r="44" fill="#fff"/>
+</svg>
