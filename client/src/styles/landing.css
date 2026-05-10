@@ -211,9 +211,11 @@
   aspect-ratio: 1;
   content: "";
   background:
-    radial-gradient(circle at 62% 30%, rgba(255, 135, 61, 0.42), transparent 12rem),
-    radial-gradient(circle at 30% 68%, rgba(255, 70, 46, 0.32), transparent 13rem),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    radial-gradient(circle at 68% 28%, rgba(255, 135, 61, 0.3), transparent 12rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.035));
+  background-size: 34px 34px, 34px 34px, auto, auto;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 38px;
   box-shadow:
@@ -222,18 +224,75 @@
   transform: rotate(-3deg);
 }
 
-.hero-orbit {
+.hero-car-scene {
   position: relative;
   display: grid;
   place-items: center;
   width: min(430px, 78vw);
   aspect-ratio: 1;
   isolation: isolate;
+  transform: perspective(900px) rotateY(-8deg) rotateX(4deg);
+  transition: transform 0.35s ease;
 }
 
-.hero-orbit img {
-  width: min(330px, 66vw);
+.hero-car-scene:hover {
+  transform: perspective(900px) rotateY(-3deg) rotateX(2deg) translateY(-6px);
+}
+
+.hero-car-card {
+  display: grid;
+  gap: 18px;
+  width: min(360px, 68vw);
+  padding: 30px;
+  color: #ffffff;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06)),
+    rgba(13, 13, 16, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 32px;
+  box-shadow:
+    0 34px 80px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(18px);
+}
+
+.hero-car-card img {
+  width: min(280px, 58vw);
+  margin: 0 auto;
   filter: drop-shadow(0 34px 42px rgba(0, 0, 0, 0.42));
+}
+
+.hero-card-copy {
+  display: grid;
+  gap: 5px;
+}
+
+.hero-card-copy span,
+.hero-tech-card span {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.hero-card-copy strong,
+.hero-tech-card strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.hero-tech-card {
+  position: absolute;
+  right: -20px;
+  bottom: 92px;
+  z-index: 2;
+  display: grid;
+  gap: 6px;
+  min-width: 150px;
+  padding: 16px;
+  color: #ffffff;
+  background: rgba(255, 111, 61, 0.86);
+  border-radius: 24px;
+  box-shadow: 0 24px 54px rgba(255, 95, 46, 0.22);
 }
 
 .hero-badge {
@@ -555,6 +614,7 @@
 
 .lead-form {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   padding: clamp(18px, 3vw, 30px);
   background: rgba(255, 255, 255, 0.08);
@@ -572,9 +632,74 @@
 }
 
 .lead-form input,
-.lead-form textarea {
+.lead-form textarea,
+.lead-form select {
   color: #ffffff;
   background: rgba(5, 5, 6, 0.72);
+}
+
+.lead-form-wide,
+.slot-picker,
+.agreement-field,
+.lead-form .button {
+  grid-column: 1 / -1;
+}
+
+.slot-picker {
+  display: grid;
+  gap: 10px;
+  color: rgba(246, 247, 251, 0.72);
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.slot-grid button {
+  min-height: 42px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 850;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.slot-grid button.is-selected {
+  background: #ff6336;
+  border-color: #ff6336;
+}
+
+.slot-grid button:disabled {
+  cursor: not-allowed;
+  opacity: 0.34;
+  text-decoration: line-through;
+}
+
+.slot-picker small {
+  color: #ffbd8c;
+}
+
+.agreement-field {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 10px !important;
+}
+
+.agreement-field input {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-top: 1px;
+  accent-color: #ff6336;
 }
 
 .form-status {
@@ -720,6 +845,11 @@
     border-radius: 20px;
   }
 
+  .lead-form,
+  .slot-grid {
+    grid-template-columns: 1fr;
+  }
+
   .final-cta-inner {
     display: grid;
   }
@@ -738,7 +868,7 @@
     min-height: 290px;
   }
 
-  .hero-orbit img {
+  .hero-car-card img {
     width: min(250px, 68vw);
   }
 

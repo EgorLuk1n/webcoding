@@ -57,8 +57,31 @@ CREATE TABLE IF NOT EXISTS leads (
   phone TEXT NOT NULL,
   car TEXT,
   message TEXT,
-  status TEXT NOT NULL DEFAULT 'new',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  client_name TEXT,
+  client_phone TEXT,
+  car_brand TEXT,
+  car_model TEXT,
+  car_year INTEGER,
+  license_plate TEXT,
+  mileage INTEGER,
+  service_type TEXT,
+  problem_description TEXT,
+  preferred_date DATE,
+  preferred_time TIME,
+  scheduled_start_at TIMESTAMPTZ,
+  scheduled_end_at TIMESTAMPTZ,
+  duration_minutes INTEGER NOT NULL DEFAULT 60,
+  client_comment TEXT,
+  admin_comment TEXT,
+  status TEXT NOT NULL DEFAULT 'new'
+    CHECK (status IN ('new', 'contacted', 'confirmed', 'rescheduled', 'in_progress', 'done', 'cancelled')),
+  cancelled_at TIMESTAMPTZ,
+  cancel_reason TEXT,
+  rescheduled_at TIMESTAMPTZ,
+  previous_scheduled_start_at TIMESTAMPTZ,
+  previous_scheduled_end_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_content_blocks_active_order ON content_blocks (is_active, sort_order);
@@ -66,6 +89,11 @@ CREATE INDEX IF NOT EXISTS idx_services_active_order ON services (is_active, sor
 CREATE INDEX IF NOT EXISTS idx_problems_active_order ON problems (is_active, sort_order);
 CREATE INDEX IF NOT EXISTS idx_contacts_active_order ON contacts (is_active, sort_order);
 CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_leads_status ON leads (status);
+CREATE INDEX IF NOT EXISTS idx_leads_preferred_date_time ON leads (preferred_date, preferred_time);
+CREATE INDEX IF NOT EXISTS idx_leads_scheduled_range
+  ON leads (scheduled_start_at, scheduled_end_at)
+  WHERE status IN ('confirmed', 'in_progress');
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_content_blocks_section_unique ON content_blocks (section);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_services_title_unique ON services (title);

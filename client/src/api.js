@@ -32,6 +32,7 @@ async function request(path, options = {}) {
 
 export const api = {
   getSite: () => request("/api/public/site"),
+  getBookingSlots: (date) => request(`/api/public/booking-slots?date=${encodeURIComponent(date)}`),
   submitLead: (payload) =>
     request("/api/public/leads", {
       method: "POST",
@@ -64,9 +65,24 @@ export const api = {
       method: "DELETE",
     }),
   listLeads: () => request("/api/admin/leads"),
+  getLead: (id) => request(`/api/admin/leads/${id}`),
+  updateLead: (id, payload) =>
+    request(`/api/admin/leads/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   updateLeadStatus: (id, status) =>
     request(`/api/admin/leads/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
+    }),
+  deleteLead: (id) =>
+    request(`/api/admin/leads/${id}`, {
+      method: "DELETE",
+    }),
+  testTelegramNotification: () =>
+    request("/api/admin/test-telegram-notification", {
+      method: "POST",
+      body: JSON.stringify({}),
     }),
 };

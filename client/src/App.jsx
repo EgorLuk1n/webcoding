@@ -3,9 +3,11 @@ import {
   ArrowRight,
   BatteryCharging,
   Car,
+  Calendar,
   Check,
   CircleGauge,
   Clock,
+  Copy,
   ExternalLink,
   LoaderCircle,
   LogOut,
@@ -16,6 +18,7 @@ import {
   PlugZap,
   RefreshCw,
   Save,
+  Send,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -87,6 +90,33 @@ const whyPoints = [
   "Внимательно относимся к каждой машине",
   "Ремонт без временных решений",
 ];
+
+const bookingServiceTypes = [
+  "Диагностика",
+  "ТО",
+  "Ремонт двигателя",
+  "Ремонт DSG",
+  "Подвеска",
+  "Тормозная система",
+  "Электрика",
+  "Другое",
+];
+
+const initialLead = {
+  client_name: "",
+  client_phone: "",
+  car_brand: "",
+  car_model: "",
+  car_year: "",
+  license_plate: "",
+  mileage: "",
+  service_type: "Диагностика",
+  problem_description: "",
+  preferred_date: getTodayDate(),
+  preferred_time: "",
+  client_comment: "",
+  personal_data_agreement: false,
+};
 
 const resourceConfig = {
   "content-blocks": {
@@ -168,8 +198,10 @@ function PublicLanding({ navigate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [lead, setLead] = useState({ name: "", phone: "", car: "", message: "" });
+  const [lead, setLead] = useState(initialLead);
   const [leadStatus, setLeadStatus] = useState({ type: "", text: "" });
+  const [slots, setSlots] = useState([]);
+  const [slotsStatus, setSlotsStatus] = useState("");
 
   useEffect(() => {
     api
@@ -197,14 +229,52 @@ function PublicLanding({ navigate }) {
 
   const closeMenu = () => setMenuOpen(false);
 
+  useEffect(() => {
+    if (!lead.preferred_date) {
+      setSlots([]);
+      return;
+    }
+
+    let cancelled = false;
+    setSlotsStatus("Проверяем доступное время...");
+
+    api
+      .getBookingSlots(lead.preferred_date)
+      .then((payload) => {
+        if (!cancelled) {
+          setSlots(payload.slots || []);
+          setSlotsStatus("");
+        }
+      })
+      .catch((requestError) => {
+        if (!cancelled) {
+          setSlots([]);
+          setSlotsStatus(requestError.message);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lead.preferred_date]);
+
   const submitLead = async (event) => {
     event.preventDefault();
+
+    if (!lead.preferred_time) {
+      setLeadStatus({ type: "error", text: "Выберите желаемое время визита." });
+      return;
+    }
+
     setLeadStatus({ type: "info", text: "Отправляем заявку..." });
 
     try {
       await api.submitLead(lead);
-      setLead({ name: "", phone: "", car: "", message: "" });
-      setLeadStatus({ type: "success", text: "Заявка отправлена. Мы свяжемся с вами." });
+      setLead({ ...initialLead, preferred_date: lead.preferred_date });
+      setLeadStatus({
+        type: "success",
+        text: "Заявка отправлена. Администратор свяжется с вами для подтверждения.",
+      });
     } catch (requestError) {
       setLeadStatus({ type: "error", text: requestError.message });
     }
@@ -280,10 +350,20 @@ function PublicLanding({ navigate }) {
           </div>
 
           <div className="hero-visual" aria-hidden="true">
-            <div className="hero-orbit">
-              <img src={berCarLogo} alt="" />
-              <span className="hero-badge top">VAG only</span>
-              <span className="hero-badge bottom">Диагностика сначала</span>
+            <div className="hero-car-scene">
+              <div className="hero-car-card">
+                <img src={berCarLogo} alt="" />
+                <div className="hero-card-copy">
+                  <span>Ber Car workshop</span>
+                  <strong>VAG diagnostics</strong>
+                </div>
+              </div>
+              <div className="hero-tech-card">
+                <span>Слот сегодня</span>
+                <strong>60 мин</strong>
+              </div>
+              <span className="hero-badge top">Volkswagen / Audi</span>
+              <span className="hero-badge bottom">Запись по слотам</span>
             </div>
           </div>
         </div>
@@ -412,44 +492,144 @@ function PublicLanding({ navigate }) {
 
           <form className="lead-form" onSubmit={submitLead}>
             <label>
-              Ваше имя
+              Имя клиента
               <input
                 type="text"
                 placeholder="Иван"
-                value={lead.name}
-                onChange={(event) => setLead({ ...lead, name: event.target.value })}
+                value={lead.client_name}
+                onChange={(event) => setLead({ ...lead, client_name: event.target.value })}
                 required
               />
             </label>
             <label>
-              Телефон
+              Телефон клиента
               <input
                 type="tel"
                 placeholder="+7"
-                value={lead.phone}
-                onChange={(event) => setLead({ ...lead, phone: event.target.value })}
+                value={lead.client_phone}
+                onChange={(event) => setLead({ ...lead, client_phone: event.target.value })}
                 required
               />
             </label>
             <label>
-              Автомобиль
+              Марка авто
               <input
                 type="text"
-                placeholder="Audi A6, 2.0 TFSI"
-                value={lead.car}
-                onChange={(event) => setLead({ ...lead, car: event.target.value })}
+                placeholder="Audi"
+                value={lead.car_brand}
+                onChange={(event) => setLead({ ...lead, car_brand: event.target.value })}
+                required
               />
             </label>
             <label>
-              Что беспокоит
-              <textarea
-                placeholder="Опишите симптомы, ошибки или недавний ремонт"
-                value={lead.message}
-                onChange={(event) => setLead({ ...lead, message: event.target.value })}
+              Модель авто
+              <input
+                type="text"
+                placeholder="A6"
+                value={lead.car_model}
+                onChange={(event) => setLead({ ...lead, car_model: event.target.value })}
+                required
               />
             </label>
+            <label>
+              Год выпуска
+              <input
+                type="number"
+                min="1980"
+                max="2035"
+                placeholder="2018"
+                value={lead.car_year}
+                onChange={(event) => setLead({ ...lead, car_year: event.target.value })}
+                required
+              />
+            </label>
+            <label>
+              Госномер
+              <input
+                type="text"
+                placeholder="А123ВС40"
+                value={lead.license_plate}
+                onChange={(event) => setLead({ ...lead, license_plate: event.target.value })}
+              />
+            </label>
+            <label>
+              Пробег
+              <input
+                type="number"
+                min="0"
+                placeholder="120000"
+                value={lead.mileage}
+                onChange={(event) => setLead({ ...lead, mileage: event.target.value })}
+              />
+            </label>
+            <label>
+              Тип услуги
+              <select
+                value={lead.service_type}
+                onChange={(event) => setLead({ ...lead, service_type: event.target.value })}
+                required
+              >
+                {bookingServiceTypes.map((type) => (
+                  <option value={type} key={type}>{type}</option>
+                ))}
+              </select>
+            </label>
+            <label className="lead-form-wide">
+              Описание проблемы
+              <textarea
+                placeholder="Опишите симптомы, ошибки, звуки или недавний ремонт"
+                value={lead.problem_description}
+                onChange={(event) => setLead({ ...lead, problem_description: event.target.value })}
+                required
+              />
+            </label>
+            <label>
+              Желаемая дата визита
+              <input
+                type="date"
+                min={getTodayDate()}
+                value={lead.preferred_date}
+                onChange={(event) => setLead({ ...lead, preferred_date: event.target.value, preferred_time: "" })}
+                required
+              />
+            </label>
+            <div className="slot-picker">
+              <span>Желаемое время визита</span>
+              <div className="slot-grid">
+                {slots.map((slot) => (
+                  <button
+                    type="button"
+                    className={lead.preferred_time === slot.time ? "is-selected" : ""}
+                    disabled={slot.isBusy}
+                    key={slot.time}
+                    onClick={() => setLead({ ...lead, preferred_time: slot.time })}
+                  >
+                    {slot.time}
+                  </button>
+                ))}
+              </div>
+              {slotsStatus ? <small>{slotsStatus}</small> : null}
+              <input type="hidden" value={lead.preferred_time} required />
+            </div>
+            <label className="lead-form-wide">
+              Комментарий клиента
+              <textarea
+                placeholder="Удобное время для звонка, дополнительные пожелания"
+                value={lead.client_comment}
+                onChange={(event) => setLead({ ...lead, client_comment: event.target.value })}
+              />
+            </label>
+            <label className="agreement-field lead-form-wide">
+              <input
+                type="checkbox"
+                checked={lead.personal_data_agreement}
+                onChange={(event) => setLead({ ...lead, personal_data_agreement: event.target.checked })}
+                required
+              />
+              <span>Согласен на обработку персональных данных</span>
+            </label>
             <button type="submit" className="button button-primary">
-              Отправить заявку
+              Отправить заявку на запись
               <ArrowRight size={18} aria-hidden="true" />
             </button>
             {leadStatus.text ? <p className={`form-status ${leadStatus.type}`}>{leadStatus.text}</p> : null}
@@ -754,22 +934,72 @@ function ResourceCrud({ resource }) {
 function LeadsPanel() {
   const [leads, setLeads] = useState([]);
   const [status, setStatus] = useState({ type: "", text: "" });
+  const [drafts, setDrafts] = useState({});
 
   const load = async () => {
     const payload = await api.listLeads();
     setLeads(payload.items);
+    setDrafts(
+      Object.fromEntries(
+        payload.items.map((lead) => [
+          lead.id,
+          {
+            preferred_date: formatInputDate(lead.scheduled_start_at || lead.preferred_date),
+            preferred_time: formatInputTime(lead.scheduled_start_at || lead.preferred_time),
+            admin_comment: lead.admin_comment || "",
+            cancel_reason: lead.cancel_reason || "",
+            duration_minutes: lead.duration_minutes || 60,
+          },
+        ]),
+      ),
+    );
   };
 
   useEffect(() => {
     load().catch((error) => setStatus({ type: "error", text: error.message }));
   }, []);
 
-  const updateStatus = async (id, nextStatus) => {
+  const updateLead = async (id, payload, successText) => {
     try {
-      setStatus({ type: "info", text: "Обновляем статус..." });
-      await api.updateLeadStatus(id, nextStatus);
+      setStatus({ type: "info", text: "Обновляем заявку..." });
+      await api.updateLead(id, payload);
       await load();
-      setStatus({ type: "success", text: "Статус обновлен" });
+      setStatus({ type: "success", text: successText });
+    } catch (error) {
+      setStatus({ type: "error", text: error.message });
+    }
+  };
+
+  const removeLead = async (id) => {
+    const confirmed = window.confirm("Удалить заявку? Это действие нельзя отменить.");
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await api.deleteLead(id);
+      await load();
+      setStatus({ type: "success", text: "Заявка удалена" });
+    } catch (error) {
+      setStatus({ type: "error", text: error.message });
+    }
+  };
+
+  const copyLead = async (lead) => {
+    const text = formatLeadText(lead);
+    await navigator.clipboard.writeText(text);
+    setStatus({ type: "success", text: "Заявка скопирована" });
+  };
+
+  const copyPhone = async (phone) => {
+    await navigator.clipboard.writeText(phone);
+    setStatus({ type: "success", text: "Телефон скопирован" });
+  };
+
+  const testTelegram = async () => {
+    try {
+      await api.testTelegramNotification();
+      setStatus({ type: "success", text: "Тестовое уведомление отправлено" });
     } catch (error) {
       setStatus({ type: "error", text: error.message });
     }
@@ -783,40 +1013,209 @@ function LeadsPanel() {
           <h2>Заявки</h2>
           <span>Новые обращения с формы сайта.</span>
         </div>
-        <button
-          type="button"
-          className="admin-ghost-button"
-          onClick={() => load().catch((error) => setStatus({ type: "error", text: error.message }))}
-        >
-          <RefreshCw size={17} aria-hidden="true" />
-          Обновить
-        </button>
+        <div className="panel-actions">
+          <button
+            type="button"
+            className="admin-ghost-button"
+            onClick={testTelegram}
+          >
+            <Send size={17} aria-hidden="true" />
+            Telegram
+          </button>
+          <button
+            type="button"
+            className="admin-ghost-button"
+            onClick={() => load().catch((error) => setStatus({ type: "error", text: error.message }))}
+          >
+            <RefreshCw size={17} aria-hidden="true" />
+            Обновить
+          </button>
+        </div>
       </div>
 
       {status.text ? <p className={`admin-message ${status.type}`}>{status.text}</p> : null}
 
       <div className="leads-list">
-        {leads.map((lead) => (
-          <article key={lead.id}>
-            <div className="lead-person">
-              <strong>{lead.name}</strong>
-              <span>{formatDate(lead.created_at)}</span>
-            </div>
-            <a href={`tel:${lead.phone}`}>{lead.phone}</a>
-            <p>{lead.car || "Автомобиль не указан"}</p>
-            <p>{lead.message || "Без сообщения"}</p>
-            <select
-              value={lead.status}
-              onChange={(event) => updateStatus(lead.id, event.target.value)}
-            >
-              <option value="new">Новая</option>
-              <option value="in_progress">В работе</option>
-              <option value="done">Готово</option>
-            </select>
-          </article>
-        ))}
+        {leads.length === 0 ? <div className="empty-state">Заявок пока нет</div> : null}
+        {leads.map((lead) => {
+          const draft = drafts[lead.id] || {};
+          const phone = lead.client_phone || lead.phone || "";
+          const telegramHref = `https://t.me/${phone.replace(/[^\d]/g, "")}`;
+
+          return (
+            <article className={`lead-card status-${lead.status}`} key={lead.id}>
+              <div className="lead-card-header">
+                <div>
+                  <span className={`status-pill ${lead.status}`}>{leadStatusLabel(lead.status)}</span>
+                  <h3>{lead.client_name || lead.name}</h3>
+                  <p>{formatDate(lead.created_at)} · обновлено {formatDate(lead.updated_at || lead.created_at)}</p>
+                </div>
+                <select
+                  value={lead.status}
+                  onChange={(event) => updateLead(lead.id, { status: event.target.value }, "Статус обновлен")}
+                >
+                  <option value="new">Новая</option>
+                  <option value="contacted">Связались</option>
+                  <option value="confirmed">Подтверждена</option>
+                  <option value="rescheduled">Перенесена</option>
+                  <option value="in_progress">В работе</option>
+                  <option value="done">Готово</option>
+                  <option value="cancelled">Отменена</option>
+                </select>
+              </div>
+
+              <div className="lead-info-grid">
+                <LeadInfo title="Клиент" items={[
+                  ["Имя", lead.client_name || lead.name],
+                  ["Телефон", phone],
+                ]} />
+                <LeadInfo title="Авто" items={[
+                  ["Марка", lead.car_brand],
+                  ["Модель", lead.car_model],
+                  ["Год", lead.car_year],
+                  ["Госномер", lead.license_plate],
+                  ["Пробег", lead.mileage ? `${lead.mileage} км` : ""],
+                ]} />
+                <LeadInfo title="Запись" items={[
+                  ["Услуга", lead.service_type],
+                  ["Желаемая дата", formatShortDate(lead.preferred_date)],
+                  ["Желаемое время", formatShortTime(lead.preferred_time)],
+                  ["Подтверждено", formatDate(lead.scheduled_start_at)],
+                ]} />
+                <LeadInfo title="Проблема" items={[
+                  ["Описание", lead.problem_description || lead.message],
+                  ["Комментарий клиента", lead.client_comment],
+                  ["Комментарий администратора", lead.admin_comment],
+                ]} />
+              </div>
+
+              <div className="lead-actions">
+                <a href={`tel:${phone}`} className="admin-ghost-button">
+                  <Phone size={16} aria-hidden="true" />
+                  Позвонить
+                </a>
+                <a href={telegramHref} target="_blank" rel="noreferrer" className="admin-ghost-button">
+                  <Send size={16} aria-hidden="true" />
+                  Telegram
+                </a>
+                <button type="button" className="admin-ghost-button" onClick={() => copyPhone(phone)}>
+                  <Copy size={16} aria-hidden="true" />
+                  Телефон
+                </button>
+                <button type="button" className="admin-ghost-button" onClick={() => copyLead(lead)}>
+                  <Copy size={16} aria-hidden="true" />
+                  Заявку
+                </button>
+              </div>
+
+              <div className="lead-schedule">
+                <label>
+                  Дата
+                  <input
+                    type="date"
+                    value={draft.preferred_date || ""}
+                    onChange={(event) => setDrafts({
+                      ...drafts,
+                      [lead.id]: { ...draft, preferred_date: event.target.value },
+                    })}
+                  />
+                </label>
+                <label>
+                  Время
+                  <input
+                    type="time"
+                    value={draft.preferred_time || ""}
+                    onChange={(event) => setDrafts({
+                      ...drafts,
+                      [lead.id]: { ...draft, preferred_time: event.target.value },
+                    })}
+                  />
+                </label>
+                <label>
+                  Длительность
+                  <input
+                    type="number"
+                    min="30"
+                    step="15"
+                    value={draft.duration_minutes || 60}
+                    onChange={(event) => setDrafts({
+                      ...drafts,
+                      [lead.id]: { ...draft, duration_minutes: event.target.value },
+                    })}
+                  />
+                </label>
+                <label>
+                  Комментарий администратора
+                  <input
+                    type="text"
+                    value={draft.admin_comment || ""}
+                    onChange={(event) => setDrafts({
+                      ...drafts,
+                      [lead.id]: { ...draft, admin_comment: event.target.value },
+                    })}
+                  />
+                </label>
+              </div>
+
+              <div className="lead-actions lead-actions-primary">
+                <button
+                  type="button"
+                  className="admin-primary-button"
+                  onClick={() => updateLead(lead.id, { ...draft, action: "confirm" }, "Запись подтверждена")}
+                >
+                  Подтвердить запись
+                </button>
+                <button
+                  type="button"
+                  className="admin-dark-button"
+                  onClick={() => updateLead(lead.id, { ...draft, action: "reschedule" }, "Запись перенесена")}
+                >
+                  Перенести
+                </button>
+                <button
+                  type="button"
+                  className="admin-ghost-button"
+                  onClick={() => updateLead(lead.id, {
+                    action: "cancel",
+                    cancel_reason: draft.cancel_reason || window.prompt("Причина отмены") || "",
+                  }, "Запись отменена")}
+                >
+                  Отменить
+                </button>
+                <a href={`/api/admin/leads/${lead.id}/calendar.ics`} className="admin-ghost-button">
+                  <Calendar size={16} aria-hidden="true" />
+                  Скачать .ics
+                </a>
+                <a href={`/api/admin/leads/${lead.id}/calendar.ics`} className="admin-ghost-button">
+                  <Calendar size={16} aria-hidden="true" />
+                  В календарь
+                </a>
+                <button type="button" className="danger-text-button" onClick={() => removeLead(lead.id)}>
+                  <Trash2 size={16} aria-hidden="true" />
+                  Удалить
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+function LeadInfo({ title, items }) {
+  return (
+    <div className="lead-info">
+      <h4>{title}</h4>
+      {items.map(([label, value]) => (
+        value ? (
+          <p key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </p>
+        ) : null
+      ))}
+    </div>
   );
 }
 
@@ -926,7 +1325,84 @@ function contactIcon(type) {
   return <MapPin size={21} aria-hidden="true" />;
 }
 
+function getTodayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatInputDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  return String(value).slice(0, 10);
+}
+
+function formatInputTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (String(value).includes("T")) {
+    return new Date(value).toLocaleTimeString("ru-RU", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+
+  return String(value).slice(0, 5);
+}
+
+function formatShortDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  return new Date(String(value).slice(0, 10)).toLocaleDateString("ru-RU");
+}
+
+function formatShortTime(value) {
+  return value ? String(value).slice(0, 5) : "";
+}
+
+function leadStatusLabel(status) {
+  const labels = {
+    new: "Новая",
+    contacted: "Связались",
+    confirmed: "Подтверждена",
+    rescheduled: "Перенесена",
+    in_progress: "В работе",
+    done: "Готово",
+    cancelled: "Отменена",
+  };
+
+  return labels[status] || status;
+}
+
+function formatLeadText(lead) {
+  return [
+    `Заявка #${lead.id}`,
+    `Клиент: ${lead.client_name || lead.name || ""}`,
+    `Телефон: ${lead.client_phone || lead.phone || ""}`,
+    `Авто: ${[lead.car_brand, lead.car_model, lead.car_year].filter(Boolean).join(" ")}`,
+    lead.license_plate ? `Госномер: ${lead.license_plate}` : "",
+    lead.mileage ? `Пробег: ${lead.mileage} км` : "",
+    `Услуга: ${lead.service_type || ""}`,
+    `Желаемое время: ${formatShortDate(lead.preferred_date)} ${formatShortTime(lead.preferred_time)}`,
+    `Статус: ${leadStatusLabel(lead.status)}`,
+    lead.problem_description ? `Проблема: ${lead.problem_description}` : "",
+    lead.client_comment ? `Комментарий клиента: ${lead.client_comment}` : "",
+    lead.admin_comment ? `Комментарий администратора: ${lead.admin_comment}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function formatDate(value) {
+  if (!value) {
+    return "";
+  }
+
   return new Date(value).toLocaleString("ru-RU", {
     dateStyle: "short",
     timeStyle: "short",

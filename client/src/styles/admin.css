@@ -253,6 +253,12 @@
   margin-bottom: 22px;
 }
 
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .panel-heading h2 {
   margin-bottom: 6px;
   color: #171719;
@@ -396,8 +402,178 @@
   scroll-margin-top: 24px;
 }
 
-.leads-list article {
-  grid-template-columns: 1.1fr 0.8fr 0.9fr 1.25fr 150px;
+.lead-card {
+  border-radius: 26px !important;
+  box-shadow: 0 20px 50px rgba(20, 24, 34, 0.06);
+}
+
+.lead-card.status-new {
+  border-color: rgba(255, 99, 54, 0.24);
+  background:
+    linear-gradient(135deg, rgba(255, 99, 54, 0.08), transparent 42%),
+    #ffffff;
+}
+
+.lead-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.lead-card-header h3 {
+  margin: 10px 0 5px;
+  color: #171719;
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+.lead-card-header p {
+  margin: 0;
+  color: #858b96;
+}
+
+.lead-card-header select {
+  width: min(220px, 100%);
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.status-pill {
+  display: inline-flex;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.status-pill.new {
+  color: #a63a20;
+  background: #fff0e8;
+}
+
+.status-pill.confirmed,
+.status-pill.in_progress {
+  color: #176134;
+  background: #e7f9ee;
+}
+
+.status-pill.rescheduled,
+.status-pill.contacted {
+  color: #775422;
+  background: #fff5dd;
+}
+
+.status-pill.done {
+  color: #425066;
+  background: #edf0f6;
+}
+
+.status-pill.cancelled {
+  color: #9a2218;
+  background: #fff0ee;
+}
+
+.lead-info-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.lead-info {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+  background: #f7f8fb;
+  border: 1px solid rgba(20, 20, 22, 0.06);
+  border-radius: 18px;
+}
+
+.lead-info h4 {
+  margin: 0;
+  color: #171719;
+}
+
+.lead-info p {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+}
+
+.lead-info span {
+  color: #858b96;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.lead-info strong {
+  overflow-wrap: anywhere;
+  color: #313640;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.lead-actions,
+.lead-actions-primary,
+.lead-schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lead-actions .admin-ghost-button,
+.lead-actions .admin-primary-button,
+.lead-actions .admin-dark-button {
+  min-height: 42px;
+  padding: 11px 14px;
+  font-size: 14px;
+}
+
+.lead-schedule {
+  display: grid;
+  grid-template-columns: 160px 140px 140px minmax(220px, 1fr);
+}
+
+.lead-schedule label {
+  display: grid;
+  gap: 7px;
+  color: #626773;
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.lead-schedule input {
+  color: #171719;
+  background: #f7f8fb;
+  border-color: rgba(20, 20, 22, 0.08);
+}
+
+.danger-text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  gap: 8px;
+  padding: 11px 14px;
+  color: #b42318;
+  background: #fff4f2;
+  border: 1px solid #ffd7d0;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.empty-state {
+  padding: 28px;
+  color: #747985;
+  text-align: center;
+  background: #f7f8fb;
+  border: 1px dashed rgba(20, 20, 22, 0.14);
+  border-radius: 22px;
+  font-weight: 850;
 }
 
 .leads-list p,
@@ -449,7 +625,8 @@
     white-space: nowrap;
   }
 
-  .leads-list article {
+  .lead-info-grid,
+  .lead-schedule {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -480,8 +657,17 @@
 
   .admin-form,
   .records-list article,
-  .leads-list article {
+  .lead-info-grid,
+  .lead-schedule {
     grid-template-columns: 1fr;
+  }
+
+  .lead-card-header {
+    display: grid;
+  }
+
+  .lead-card-header select {
+    width: 100%;
   }
 
   .record-actions {
