@@ -1,19 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowRight,
   BatteryCharging,
   Car,
-  ChevronRight,
+  Check,
   CircleGauge,
   Clock,
+  ExternalLink,
   LoaderCircle,
   LogOut,
+  Mail,
   MapPin,
+  Menu,
   Phone,
   PlugZap,
+  RefreshCw,
+  Save,
   Settings,
   ShieldCheck,
+  Sparkles,
   Trash2,
   Wrench,
+  X,
 } from "lucide-react";
 import { api } from "./api.js";
 import berCarLogo from "./assets/ber-car-logo-transparent.png";
@@ -29,9 +37,61 @@ const iconMap = {
   wrench: Wrench,
 };
 
+const serviceFallbacks = [
+  "Точная диагностика электронных систем, ошибок и скрытых причин.",
+  "Регламентные работы, масла, фильтры и спокойный осмотр без спешки.",
+  "Цепи, ГРМ, расход масла, потеря мощности и навесное оборудование.",
+  "Рывки, пинки, задержки, адаптация и ремонт узлов DSG.",
+  "Стуки, люфты, сайлентблоки, амортизаторы и проверка ходовой.",
+  "Диски, колодки, суппорты, жидкости и уверенное торможение.",
+  "Проводка, питание, блоки, датчики и нестабильные ошибки.",
+  "Разберемся с нестандартной задачей и предложим честное решение.",
+];
+
+const defaultServices = [
+  "Диагностика",
+  "Техническое обслуживание",
+  "Ремонт двигателя",
+  "Ремонт DSG",
+  "Подвеска",
+  "Тормозная система",
+  "Электрика",
+  "Прочие работы",
+].map((title, index) => ({
+  id: `default-service-${index}`,
+  title,
+  description: serviceFallbacks[index],
+  icon: ["gauge", "wrench", "settings", "car", "shield", "gauge", "battery", "plug"][index],
+}));
+
+const defaultProblems = [
+  "Машина троит или работает нестабильно",
+  "Загорелись ошибки на приборке",
+  "Проблемы с DSG: рывки, пинки, задержки",
+  "Стуки в подвеске",
+  "Повышенный расход масла",
+  "Потеря мощности",
+  "Не могут найти причину в других сервисах",
+].map((title, index) => ({ id: `default-problem-${index}`, title }));
+
+const heroBenefits = [
+  "Узкая специализация на VAG",
+  "Оригинальные запчасти и аналоги",
+  "Без навязанных работ",
+  "Прямое общение с мастером",
+];
+
+const whyPoints = [
+  "Работаем с Volkswagen, Audi, Škoda, SEAT",
+  "Находим причину, а не просто симптомы",
+  "Внимательно относимся к каждой машине",
+  "Ремонт без временных решений",
+];
+
 const resourceConfig = {
   "content-blocks": {
     title: "Блоки контента",
+    hint: "Hero, тексты секций и порядок отображения на сайте.",
     fields: [
       { name: "section", label: "Секция" },
       { name: "title", label: "Заголовок" },
@@ -43,6 +103,7 @@ const resourceConfig = {
   },
   services: {
     title: "Услуги",
+    hint: "Карточки услуг публичного сайта.",
     fields: [
       { name: "title", label: "Название" },
       { name: "description", label: "Описание", type: "textarea" },
@@ -53,6 +114,7 @@ const resourceConfig = {
   },
   problems: {
     title: "Проблемы",
+    hint: "Симптомы и частые обращения клиентов.",
     fields: [
       { name: "title", label: "Текст" },
       { name: "sort_order", label: "Порядок", type: "number" },
@@ -61,6 +123,7 @@ const resourceConfig = {
   },
   contacts: {
     title: "Контакты",
+    hint: "Телефон, адрес, график и ссылки.",
     fields: [
       { name: "label", label: "Название" },
       { name: "value", label: "Значение" },
@@ -104,8 +167,9 @@ function PublicLanding({ navigate }) {
   const [site, setSite] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [lead, setLead] = useState({ name: "", phone: "", car: "", message: "" });
-  const [leadStatus, setLeadStatus] = useState("");
+  const [leadStatus, setLeadStatus] = useState({ type: "", text: "" });
 
   useEffect(() => {
     api
@@ -122,21 +186,27 @@ function PublicLanding({ navigate }) {
     return Object.fromEntries((site?.contentBlocks || []).map((block) => [block.section, block]));
   }, [site]);
 
-  const hero = blocks.hero || {};
-  const statement = blocks.statement || {};
-  const parts = blocks.parts || {};
   const contacts = site?.contacts || [];
+  const services = (site?.services?.length ? site.services : defaultServices).map((service, index) => ({
+    ...service,
+    title: normalizeServiceTitle(service.title, index),
+    description: service.description || serviceFallbacks[index] || serviceFallbacks.at(-1),
+  }));
+  const problems = site?.problems?.length ? site.problems : defaultProblems;
+  const phoneHref = findContactHref(contacts, "phone");
+
+  const closeMenu = () => setMenuOpen(false);
 
   const submitLead = async (event) => {
     event.preventDefault();
-    setLeadStatus("Отправляем заявку...");
+    setLeadStatus({ type: "info", text: "Отправляем заявку..." });
 
     try {
       await api.submitLead(lead);
       setLead({ name: "", phone: "", car: "", message: "" });
-      setLeadStatus("Заявка отправлена. Мы свяжемся с вами.");
+      setLeadStatus({ type: "success", text: "Заявка отправлена. Мы свяжемся с вами." });
     } catch (requestError) {
-      setLeadStatus(requestError.message);
+      setLeadStatus({ type: "error", text: requestError.message });
     }
   };
 
@@ -148,24 +218,33 @@ function PublicLanding({ navigate }) {
     <main className="page">
       <header className="site-header">
         <div className="container nav">
-          <a href="#top" className="brand" aria-label="Ber Car">
+          <a href="#top" className="brand" aria-label="Ber Car" onClick={closeMenu}>
             <img src={berCarLogo} alt="" />
             <span>Ber Car</span>
           </a>
 
-          <nav className="nav-links" aria-label="Основная навигация">
-            <a href="#services">Услуги</a>
-            <a href="#diagnostics">Подход</a>
-            <a href="#contacts">Контакты</a>
-            <button type="button" onClick={() => navigate("/admin/login")}>
-              Админка
-            </button>
+          <nav className={`nav-links ${menuOpen ? "is-open" : ""}`} aria-label="Основная навигация">
+            <a href="#services" onClick={closeMenu}>Услуги</a>
+            <a href="#approach" onClick={closeMenu}>Подход</a>
+            <a href="#problems" onClick={closeMenu}>Проблемы</a>
+            <a href="#contacts" onClick={closeMenu}>Контакты</a>
+            <button type="button" onClick={() => navigate("/admin/login")}>Админка</button>
           </nav>
 
-          <a href={findContactHref(contacts, "phone")} className="nav-phone">
-            <Phone size={17} aria-hidden="true" />
-            Позвонить
-          </a>
+          <div className="nav-actions">
+            <a href={phoneHref} className="nav-phone">
+              <Phone size={17} aria-hidden="true" />
+              Позвонить
+            </a>
+            <button
+              type="button"
+              className="menu-toggle"
+              onClick={() => setMenuOpen((value) => !value)}
+              aria-label={menuOpen ? "Закрыть меню" : "Открыть меню"}
+            >
+              {menuOpen ? <X size={21} /> : <Menu size={21} />}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -173,46 +252,81 @@ function PublicLanding({ navigate }) {
 
       <section className="hero" id="top">
         <div className="container hero-inner">
-          <p className="eyebrow">{hero.subtitle || "VAG сервис в Калуге"}</p>
-          <h1>{hero.title || "Ber Car"}</h1>
-          <p className="hero-lead">{hero.body}</p>
+          <div className="hero-copy">
+            <p className="eyebrow">VAG сервис в Калуге</p>
+            <h1>Профессиональный ремонт VAG автомобилей в Калуге</h1>
+            <p className="hero-subtitle">Решаем сложные неисправности и делаем как для себя</p>
+            <p className="hero-lead">
+              Volkswagen, Audi, Škoda, SEAT — точная диагностика, качественный ремонт и подбор
+              запчастей без лишних работ.
+            </p>
 
-          <div className="hero-actions" aria-label="Основные действия">
-            <a href="#contacts" className="link-action">
-              Записаться
-              <ChevronRight size={19} aria-hidden="true" />
-            </a>
-            <a href="#services" className="link-action link-action-muted">
-              Смотреть услуги
-              <ChevronRight size={19} aria-hidden="true" />
-            </a>
+            <div className="hero-actions" aria-label="Основные действия">
+              <a href="#contacts" className="button button-primary">
+                Записаться
+                <ArrowRight size={18} aria-hidden="true" />
+              </a>
+              <a href="#services" className="button button-secondary">Смотреть услуги</a>
+            </div>
+
+            <div className="hero-benefits">
+              {heroBenefits.map((benefit) => (
+                <span key={benefit}>
+                  <Check size={16} aria-hidden="true" />
+                  {benefit}
+                </span>
+              ))}
+            </div>
           </div>
 
           <div className="hero-visual" aria-hidden="true">
-            <img src={berCarLogo} alt="" />
+            <div className="hero-orbit">
+              <img src={berCarLogo} alt="" />
+              <span className="hero-badge top">VAG only</span>
+              <span className="hero-badge bottom">Диагностика сначала</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="statement">
-        <div className="container statement-inner">
-          <p>{statement.body || statement.title}</p>
+      <section className="section why" id="why">
+        <div className="container why-grid">
+          <div>
+            <p className="eyebrow">Почему Ber Car</p>
+            <h2>Почему владельцы VAG выбирают Ber Car</h2>
+          </div>
+          <div className="why-card">
+            <p>
+              Мы не большой потоковый сервис — у нас вы общаетесь напрямую с мастером, который
+              разбирается в VAG и отвечает за результат.
+            </p>
+            <div className="why-points">
+              {whyPoints.map((point) => (
+                <span key={point}>
+                  <Check size={17} aria-hidden="true" />
+                  {point}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="section services" id="services">
         <div className="container">
-          <div className="section-heading">
-            <p className="eyebrow">Услуги</p>
-            <h2>Все важное для VAG. В одном месте.</h2>
-          </div>
+          <SectionHeading
+            eyebrow="Услуги"
+            title="Все важное для Volkswagen, Audi, Škoda и SEAT"
+            text="Работаем аккуратно, объясняем варианты и не превращаем ремонт в список лишних замен."
+          />
 
           <div className="services-grid">
-            {(site?.services || []).map((service) => {
+            {services.map((service, index) => {
               const Icon = iconMap[service.icon] || Wrench;
 
               return (
-                <article className="service-card" key={service.id}>
+                <article className="service-card" key={service.id || service.title}>
+                  <span className="service-index">{String(index + 1).padStart(2, "0")}</span>
                   <Icon size={28} strokeWidth={1.9} aria-hidden="true" />
                   <h3>{service.title}</h3>
                   <p>{service.description}</p>
@@ -223,20 +337,19 @@ function PublicLanding({ navigate }) {
         </div>
       </section>
 
-      <section className="section diagnostics" id="diagnostics">
-        <div className="container diagnostics-grid">
-          <div className="diagnostics-copy">
+      <section className="section approach" id="approach">
+        <div className="container approach-grid">
+          <div className="approach-copy">
             <p className="eyebrow">Подход</p>
             <h2>Сначала причина. Потом ремонт.</h2>
             <p>
-              Мы не меняем детали вслепую. Сначала собираем симптомы, проверяем
-              факты и только потом предлагаем работу, которая действительно
-              нужна машине.
+              Слушаем симптомы, проверяем данные, показываем найденную причину и согласуем работы
+              до начала ремонта. Без догадок, спешки и временных решений.
             </p>
           </div>
 
           <div className="steps">
-            {["Слушаем симптомы", "Проверяем данные", "Показываем причину", "Согласуем ремонт"].map(
+            {["Разговор с мастером", "Диагностика и проверка", "Понятная смета", "Качественный ремонт"].map(
               (step, index) => (
                 <div className="step" key={step}>
                   <span>{String(index + 1).padStart(2, "0")}</span>
@@ -248,16 +361,19 @@ function PublicLanding({ navigate }) {
         </div>
       </section>
 
-      <section className="section problems">
+      <section className="section problems" id="problems">
         <div className="container problems-grid">
           <div>
-            <p className="eyebrow">Симптомы</p>
-            <h2>Если машина подает знак, лучше не ждать.</h2>
+            <p className="eyebrow">Какие проблемы решаем</p>
+            <h2>Когда машина подает знак, лучше не ждать.</h2>
           </div>
 
           <ul className="problem-list">
-            {(site?.problems || []).map((problem) => (
-              <li key={problem.id}>{problem.title}</li>
+            {problems.map((problem) => (
+              <li key={problem.id || problem.title}>
+                <Sparkles size={18} aria-hidden="true" />
+                {normalizeProblemTitle(problem.title)}
+              </li>
             ))}
           </ul>
         </div>
@@ -265,64 +381,105 @@ function PublicLanding({ navigate }) {
 
       <section className="section parts">
         <div className="container parts-inner">
-          <p className="eyebrow">{parts.subtitle || "Запчасти"}</p>
-          <h2>{parts.title}</h2>
-          <p>{parts.body}</p>
+          <p className="eyebrow">{blocks.parts?.subtitle || "Запчасти"}</p>
+          <h2>{blocks.parts?.title || "Оригинальные запчасти и качественные аналоги"}</h2>
+          <p>
+            {blocks.parts?.body ||
+              "Работаем с оригинальными запчастями и качественными аналогами. Подбираем оптимальный вариант под задачу и бюджет."}
+          </p>
         </div>
       </section>
 
       <section className="section contacts" id="contacts">
         <div className="container contact-grid">
           <div className="contact-copy">
-            <p className="eyebrow">Контакты</p>
-            <h2>Запишитесь в Ber Car.</h2>
-            <p>Опишите симптомы, и мы подскажем ближайший разумный шаг.</p>
+            <p className="eyebrow">Заявка</p>
+            <h2>Опишите задачу — мастер подскажет следующий шаг.</h2>
+            <p>Оставьте контакты, модель автомобиля и симптомы. Мы свяжемся с вами и сориентируем по диагностике.</p>
 
             <div className="contact-items">
               {contacts.map((contact) => (
-                <p key={contact.id}>
+                <a href={contact.href || "#contacts"} key={contact.id}>
                   {contactIcon(contact.type)}
-                  {contact.value}
-                </p>
+                  <span>
+                    <small>{contact.label}</small>
+                    {contact.value}
+                  </span>
+                </a>
               ))}
             </div>
           </div>
 
-          <form className="form" onSubmit={submitLead}>
-            <input
-              type="text"
-              placeholder="Ваше имя"
-              value={lead.name}
-              onChange={(event) => setLead({ ...lead, name: event.target.value })}
-              required
-            />
-            <input
-              type="tel"
-              placeholder="Телефон"
-              value={lead.phone}
-              onChange={(event) => setLead({ ...lead, phone: event.target.value })}
-              required
-            />
-            <input
-              type="text"
-              placeholder="Марка и модель авто"
-              value={lead.car}
-              onChange={(event) => setLead({ ...lead, car: event.target.value })}
-            />
-            <textarea
-              placeholder="Что беспокоит"
-              value={lead.message}
-              onChange={(event) => setLead({ ...lead, message: event.target.value })}
-            />
-            <button type="submit">
+          <form className="lead-form" onSubmit={submitLead}>
+            <label>
+              Ваше имя
+              <input
+                type="text"
+                placeholder="Иван"
+                value={lead.name}
+                onChange={(event) => setLead({ ...lead, name: event.target.value })}
+                required
+              />
+            </label>
+            <label>
+              Телефон
+              <input
+                type="tel"
+                placeholder="+7"
+                value={lead.phone}
+                onChange={(event) => setLead({ ...lead, phone: event.target.value })}
+                required
+              />
+            </label>
+            <label>
+              Автомобиль
+              <input
+                type="text"
+                placeholder="Audi A6, 2.0 TFSI"
+                value={lead.car}
+                onChange={(event) => setLead({ ...lead, car: event.target.value })}
+              />
+            </label>
+            <label>
+              Что беспокоит
+              <textarea
+                placeholder="Опишите симптомы, ошибки или недавний ремонт"
+                value={lead.message}
+                onChange={(event) => setLead({ ...lead, message: event.target.value })}
+              />
+            </label>
+            <button type="submit" className="button button-primary">
               Отправить заявку
-              <ChevronRight size={18} aria-hidden="true" />
+              <ArrowRight size={18} aria-hidden="true" />
             </button>
-            {leadStatus ? <p className="form-status">{leadStatus}</p> : null}
+            {leadStatus.text ? <p className={`form-status ${leadStatus.type}`}>{leadStatus.text}</p> : null}
           </form>
         </div>
       </section>
+
+      <section className="final-cta">
+        <div className="container final-cta-inner">
+          <div>
+            <p className="eyebrow">Не откладывайте ремонт</p>
+            <h2>Чем раньше найдена проблема — тем дешевле её решить.</h2>
+          </div>
+          <a href="#contacts" className="button button-primary">
+            Записаться на диагностику
+            <ArrowRight size={18} aria-hidden="true" />
+          </a>
+        </div>
+      </section>
     </main>
+  );
+}
+
+function SectionHeading({ eyebrow, title, text }) {
+  return (
+    <div className="section-heading">
+      <p className="eyebrow">{eyebrow}</p>
+      <h2>{title}</h2>
+      {text ? <p>{text}</p> : null}
+    </div>
   );
 }
 
@@ -349,28 +506,39 @@ function LoginPage({ navigate }) {
   return (
     <main className="admin-shell login-shell">
       <form className="login-card" onSubmit={submit}>
-        <img src={berCarLogo} alt="Ber Car" />
-        <h1>Админка Ber Car</h1>
-        <p>Войдите, чтобы редактировать лендинг и смотреть заявки.</p>
-        <input
-          type="email"
-          value={form.email}
-          onChange={(event) => setForm({ ...form, email: event.target.value })}
-          placeholder="Email"
-          required
-        />
-        <input
-          type="password"
-          value={form.password}
-          onChange={(event) => setForm({ ...form, password: event.target.value })}
-          placeholder="Пароль"
-          required
-        />
-        <button type="submit" disabled={loading}>
+        <div className="login-logo">
+          <img src={berCarLogo} alt="Ber Car" />
+        </div>
+        <p className="admin-kicker">Ber Car CMS</p>
+        <h1>Вход в админку</h1>
+        <p>Управление лендингом, контактами, услугами и заявками.</p>
+        <label>
+          Email
+          <input
+            type="email"
+            value={form.email}
+            onChange={(event) => setForm({ ...form, email: event.target.value })}
+            placeholder="admin@bercar.local"
+            required
+          />
+        </label>
+        <label>
+          Пароль
+          <input
+            type="password"
+            value={form.password}
+            onChange={(event) => setForm({ ...form, password: event.target.value })}
+            placeholder="Пароль"
+            required
+          />
+        </label>
+        <button type="submit" className="admin-primary-button" disabled={loading}>
+          {loading ? <LoaderCircle size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
           {loading ? "Входим..." : "Войти"}
         </button>
-        {error ? <span className="admin-error">{error}</span> : null}
-        <button type="button" className="ghost-button" onClick={() => navigate("/")}>
+        {error ? <span className="admin-message error">{error}</span> : null}
+        <button type="button" className="admin-ghost-button" onClick={() => navigate("/")}>
+          <ExternalLink size={17} aria-hidden="true" />
           На сайт
         </button>
       </form>
@@ -406,24 +574,16 @@ function AdminDashboard({ navigate }) {
 
   return (
     <main className="admin-shell">
-      <header className="admin-header">
-        <div>
-          <span>Ber Car CMS</span>
-          <strong>{admin.email}</strong>
+      <aside className="admin-sidebar">
+        <div className="admin-brand">
+          <img src={berCarLogo} alt="" />
+          <div>
+            <strong>Ber Car</strong>
+            <span>CMS</span>
+          </div>
         </div>
-        <nav>
-          <button type="button" onClick={() => navigate("/")}>
-            Сайт
-          </button>
-          <button type="button" onClick={logout}>
-            <LogOut size={17} aria-hidden="true" />
-            Выйти
-          </button>
-        </nav>
-      </header>
 
-      <div className="admin-layout">
-        <aside className="admin-sidebar">
+        <nav aria-label="Разделы админки">
           {resourceKeys.map((key) => (
             <button
               type="button"
@@ -435,13 +595,32 @@ function AdminDashboard({ navigate }) {
             </button>
           ))}
           <a href="#leads">Заявки</a>
-        </aside>
+        </nav>
+      </aside>
 
-        <section className="admin-content">
+      <section className="admin-main">
+        <header className="admin-header">
+          <div>
+            <span>Администратор</span>
+            <strong>{admin.email}</strong>
+          </div>
+          <nav>
+            <button type="button" className="admin-ghost-button" onClick={() => navigate("/")}>
+              <ExternalLink size={17} aria-hidden="true" />
+              Сайт
+            </button>
+            <button type="button" className="admin-dark-button" onClick={logout}>
+              <LogOut size={17} aria-hidden="true" />
+              Выйти
+            </button>
+          </nav>
+        </header>
+
+        <div className="admin-content">
           <ResourceCrud resource={activeResource} />
           <LeadsPanel />
-        </section>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
@@ -451,7 +630,7 @@ function ResourceCrud({ resource }) {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(emptyForm(config));
   const [editingId, setEditingId] = useState(null);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState({ type: "", text: "" });
 
   const load = async () => {
     const payload = await api.listResource(resource);
@@ -461,13 +640,13 @@ function ResourceCrud({ resource }) {
   useEffect(() => {
     setForm(emptyForm(config));
     setEditingId(null);
-    setStatus("");
-    load().catch((error) => setStatus(error.message));
+    setStatus({ type: "", text: "" });
+    load().catch((error) => setStatus({ type: "error", text: error.message }));
   }, [resource]);
 
   const submit = async (event) => {
     event.preventDefault();
-    setStatus("Сохраняем...");
+    setStatus({ type: "info", text: "Сохраняем..." });
 
     try {
       const payload = serializeForm(config, form);
@@ -481,9 +660,9 @@ function ResourceCrud({ resource }) {
       await load();
       setForm(emptyForm(config));
       setEditingId(null);
-      setStatus("Сохранено");
+      setStatus({ type: "success", text: "Сохранено" });
     } catch (error) {
-      setStatus(error.message);
+      setStatus({ type: "error", text: error.message });
     }
   };
 
@@ -497,26 +676,41 @@ function ResourceCrud({ resource }) {
         ]),
       ),
     );
+    setStatus({ type: "info", text: `Редактирование записи #${item.id}` });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const remove = async (id) => {
-    setStatus("Удаляем...");
-    await api.deleteResource(resource, id);
-    await load();
-    setStatus("Удалено");
+    const confirmed = window.confirm("Удалить запись? Это действие нельзя отменить.");
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setStatus({ type: "info", text: "Удаляем..." });
+      await api.deleteResource(resource, id);
+      await load();
+      setStatus({ type: "success", text: "Удалено" });
+    } catch (error) {
+      setStatus({ type: "error", text: error.message });
+    }
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setForm(emptyForm(config));
+    setStatus({ type: "", text: "" });
   };
 
   return (
     <section className="admin-panel">
       <div className="panel-heading">
-        <h2>{config.title}</h2>
-        <button
-          type="button"
-          onClick={() => {
-            setEditingId(null);
-            setForm(emptyForm(config));
-          }}
-        >
+        <div>
+          <p className="admin-kicker">{editingId ? `Запись #${editingId}` : "Редактор"}</p>
+          <h2>{config.title}</h2>
+          <span>{config.hint}</span>
+        </div>
+        <button type="button" className="admin-ghost-button" onClick={resetForm}>
           Новая запись
         </button>
       </div>
@@ -528,20 +722,28 @@ function ResourceCrud({ resource }) {
             {renderField(field, form, setForm)}
           </label>
         ))}
-        <button type="submit">{editingId ? "Обновить" : "Создать"}</button>
-        {status ? <p className="admin-status">{status}</p> : null}
+        <div className="admin-form-actions">
+          <button type="submit" className="admin-primary-button">
+            <Save size={17} aria-hidden="true" />
+            {editingId ? "Сохранить" : "Создать"}
+          </button>
+          {status.text ? <p className={`admin-message ${status.type}`}>{status.text}</p> : null}
+        </div>
       </form>
 
-      <div className="admin-table">
+      <div className="records-list">
         {items.map((item) => (
           <article key={item.id}>
-            <button type="button" onClick={() => edit(item)}>
+            <button type="button" className="record-main" onClick={() => edit(item)}>
               <strong>{item.title || item.label || item.section}</strong>
-              <span>#{item.id}</span>
+              <span>{item.subtitle || item.value || item.section || `#${item.id}`}</span>
             </button>
-            <button type="button" aria-label="Удалить" onClick={() => remove(item.id)}>
-              <Trash2 size={18} aria-hidden="true" />
-            </button>
+            <div className="record-actions">
+              <button type="button" onClick={() => edit(item)}>Изменить</button>
+              <button type="button" className="danger-button" aria-label="Удалить" onClick={() => remove(item.id)}>
+                <Trash2 size={17} aria-hidden="true" />
+              </button>
+            </div>
           </article>
         ))}
       </div>
@@ -551,7 +753,7 @@ function ResourceCrud({ resource }) {
 
 function LeadsPanel() {
   const [leads, setLeads] = useState([]);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState({ type: "", text: "" });
 
   const load = async () => {
     const payload = await api.listLeads();
@@ -559,42 +761,57 @@ function LeadsPanel() {
   };
 
   useEffect(() => {
-    load().catch((error) => setStatus(error.message));
+    load().catch((error) => setStatus({ type: "error", text: error.message }));
   }, []);
 
   const updateStatus = async (id, nextStatus) => {
-    await api.updateLeadStatus(id, nextStatus);
-    await load();
+    try {
+      setStatus({ type: "info", text: "Обновляем статус..." });
+      await api.updateLeadStatus(id, nextStatus);
+      await load();
+      setStatus({ type: "success", text: "Статус обновлен" });
+    } catch (error) {
+      setStatus({ type: "error", text: error.message });
+    }
   };
 
   return (
     <section className="admin-panel leads-panel" id="leads">
       <div className="panel-heading">
-        <h2>Заявки</h2>
-        <button type="button" onClick={() => load().catch((error) => setStatus(error.message))}>
+        <div>
+          <p className="admin-kicker">CRM</p>
+          <h2>Заявки</h2>
+          <span>Новые обращения с формы сайта.</span>
+        </div>
+        <button
+          type="button"
+          className="admin-ghost-button"
+          onClick={() => load().catch((error) => setStatus({ type: "error", text: error.message }))}
+        >
+          <RefreshCw size={17} aria-hidden="true" />
           Обновить
         </button>
       </div>
 
-      {status ? <p className="admin-status">{status}</p> : null}
+      {status.text ? <p className={`admin-message ${status.type}`}>{status.text}</p> : null}
 
       <div className="leads-list">
         {leads.map((lead) => (
           <article key={lead.id}>
-            <div>
+            <div className="lead-person">
               <strong>{lead.name}</strong>
               <span>{formatDate(lead.created_at)}</span>
             </div>
-            <p>{lead.phone}</p>
-            <p>{lead.car}</p>
-            <p>{lead.message}</p>
+            <a href={`tel:${lead.phone}`}>{lead.phone}</a>
+            <p>{lead.car || "Автомобиль не указан"}</p>
+            <p>{lead.message || "Без сообщения"}</p>
             <select
               value={lead.status}
               onChange={(event) => updateStatus(lead.id, event.target.value)}
             >
-              <option value="new">new</option>
-              <option value="in_progress">in_progress</option>
-              <option value="done">done</option>
+              <option value="new">Новая</option>
+              <option value="in_progress">В работе</option>
+              <option value="done">Готово</option>
             </select>
           </article>
         ))}
@@ -666,6 +883,28 @@ function renderField(field, form, setForm) {
   );
 }
 
+function normalizeServiceTitle(title, index) {
+  const replacements = {
+    "Диагностика VAG": "Диагностика",
+    "Двигатель": "Ремонт двигателя",
+    "DSG и трансмиссия": "Ремонт DSG",
+    "Тормоза": "Тормозная система",
+  };
+
+  return replacements[title] || title || defaultServices[index]?.title || "Услуга";
+}
+
+function normalizeProblemTitle(title) {
+  const replacements = {
+    "DSG дергается, пинается или думает перед стартом": "Проблемы с DSG: рывки, пинки, задержки",
+    "Стуки в подвеске и вибрации на скорости": "Стуки в подвеске",
+    "Повышенный расход масла или топлива": "Повышенный расход масла",
+    "Машина перестала ехать как раньше": "Потеря мощности",
+  };
+
+  return replacements[title] || title;
+}
+
 function findContactHref(contacts, type) {
   const contact = contacts.find((item) => item.type === type);
   return contact?.href || "#contacts";
@@ -678,6 +917,10 @@ function contactIcon(type) {
 
   if (type === "hours") {
     return <Clock size={21} aria-hidden="true" />;
+  }
+
+  if (type === "email") {
+    return <Mail size={21} aria-hidden="true" />;
   }
 
   return <MapPin size={21} aria-hidden="true" />;
