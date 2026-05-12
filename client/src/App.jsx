@@ -43,8 +43,8 @@ const iconMap = {
 
 const serviceFallbacks = [
   "Точная диагностика электронных систем, ошибок и скрытых причин.",
-  "Регламентные работы, масла, фильтры и спокойный осмотр без спешки.",
-  "Цепи, ГРМ, расход масла, потеря мощности и навесное оборудование.",
+  "Регламентные работы и спокойный осмотр автомобиля без спешки.",
+  "Нестабильная работа, расход масла, цепи, ГРМ и потеря мощности.",
   "Рывки, пинки, задержки, адаптация и ремонт узлов DSG.",
   "Стуки, люфты, сайлентблоки, амортизаторы и проверка ходовой.",
   "Диски, колодки, суппорты, жидкости и уверенное торможение.",
@@ -67,6 +67,39 @@ const defaultServices = [
   description: serviceFallbacks[index],
   icon: ["gauge", "wrench", "settings", "car", "shield", "gauge", "battery", "plug"][index],
 }));
+
+const serviceDetails = {
+  "Диагностика": {
+    points: ["Компьютерная проверка", "Поиск причины", "План ремонта"],
+    featured: true,
+    badge: "часто выбирают",
+  },
+  "Техническое обслуживание": {
+    points: ["Масла и фильтры", "Проверка узлов", "Рекомендации"],
+    featured: true,
+  },
+  "Ремонт двигателя": {
+    points: ["Диагностика мотора", "Поиск неисправности", "Согласование ремонта"],
+    featured: true,
+  },
+  "Ремонт DSG": {
+    points: ["Проверка ошибок", "Адаптация", "Рекомендации"],
+    featured: true,
+    badge: "DSG",
+  },
+  "Подвеска": {
+    points: ["Диагностика ходовой", "Поиск стуков", "Замена деталей"],
+  },
+  "Тормозная система": {
+    points: ["Осмотр тормозов", "Замена расходников", "Проверка безопасности"],
+  },
+  "Электрика": {
+    points: ["Поиск ошибок", "Проверка датчиков", "Диагностика цепей"],
+  },
+  "Запчасти": {
+    points: ["Подбор вариантов", "Проверенные бренды", "Без лишних переплат"],
+  },
+};
 
 const defaultProblems = [
   "Машина троит или работает нестабильно",
@@ -594,24 +627,34 @@ function PublicLanding({ navigate, path }) {
         <div className="container">
           <SectionHeading
             eyebrow="Услуги"
-            title="Все важное для Volkswagen, Audi, Škoda и SEAT"
-            text="Работаем аккуратно, объясняем варианты и не превращаем ремонт в список лишних замен."
+            title="Всё для обслуживания VAG в одном месте"
+            text="Диагностика, обслуживание и ремонт Volkswagen, Audi, Škoda и SEAT в Калуге — без лишних работ и случайных решений."
           />
 
           <div className="services-grid">
             {services.map((service, index) => {
               const Icon = iconMap[service.icon] || Wrench;
+              const detail = serviceDetails[service.title] || {};
+              const detailPath = serviceDetailPath(service.title);
 
               return (
-                <article className="service-card" key={service.id || service.title}>
-                  <span className="service-index">{String(index + 1).padStart(2, "0")}</span>
-                  <Icon size={28} strokeWidth={1.9} aria-hidden="true" />
-                  <h3>{service.title}</h3>
-                  <p>{service.description}</p>
+                <article className={`service-card ${detail.featured ? "is-featured" : ""}`} key={service.id || service.title}>
+                  <div className="service-card-top">
+                    <span className="service-icon"><Icon size={24} strokeWidth={1.9} aria-hidden="true" /></span>
+                    <span className="service-index">{String(index + 1).padStart(2, "0")}</span>
+                  </div>
+                  {detail.badge ? <span className="service-badge">{detail.badge}</span> : null}
+                  <div className="service-card-body">
+                    <h3>{service.title}</h3>
+                    <p>{service.description}</p>
+                    <ul>
+                      {(detail.points || []).map((point) => <li key={point}>{point}</li>)}
+                    </ul>
+                  </div>
                   <div className="service-actions">
                     <button type="button" onClick={() => navigate("/booking")}>Записаться</button>
-                    {serviceDetailPath(service.title) ? (
-                      <button type="button" onClick={() => navigate(serviceDetailPath(service.title))}>Подробнее</button>
+                    {detailPath ? (
+                      <button type="button" className="service-more" onClick={() => navigate(detailPath)}>Подробнее →</button>
                     ) : null}
                   </div>
                 </article>
