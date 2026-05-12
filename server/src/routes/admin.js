@@ -38,8 +38,14 @@ const resources = {
   },
   reviews: {
     table: "reviews",
-    fields: ["client_name", "car", "text", "rating", "source", "review_date", "sort_order", "is_active"],
-    required: ["client_name", "text"],
+    fields: ["source", "client_name", "rating", "review_text", "car", "service_type", "review_date", "source_url", "is_featured", "sort_order", "is_active"],
+    required: ["client_name", "review_text"],
+  },
+  "review-sources": {
+    table: "review_sources",
+    fields: ["source", "title", "rating", "reviews_count", "profile_url", "is_active"],
+    required: ["source", "title"],
+    orderBy: "id",
   },
 };
 
@@ -287,7 +293,7 @@ adminRouter.get("/:resource", async (req, res, next) => {
   try {
     const config = getResource(req.params.resource);
     const items = await query(
-      `SELECT * FROM ${config.table} ORDER BY sort_order, id`,
+      `SELECT * FROM ${config.table} ORDER BY ${config.orderBy || "sort_order, id"}`,
     );
     return res.json({ items });
   } catch (error) {
@@ -519,13 +525,19 @@ function validateLeadStatus(status) {
 }
 
 function buildPayload(config, body) {
-  return config.fields.reduce((payload, field) => {
+  const payload = config.fields.reduce((result, field) => {
     if (Object.prototype.hasOwnProperty.call(body, field)) {
-      payload[field] = normalizeValue(field, body[field]);
+      result[field] = normalizeValue(field, body[field]);
     }
 
-    return payload;
+    return result;
   }, {});
+
+  if (config.table === "reviews" && payload.review_text) {
+    payload.text = payload.review_text;
+  }
+
+  return payload;
 }
 
 function normalizeValue(field, value) {
@@ -533,8 +545,13 @@ function normalizeValue(field, value) {
     return Number.parseInt(value || 0, 10);
   }
 
-  if (field === "car_year" || field === "mileage" || field === "rating") {
+  if (field === "car_year" || field === "mileage" || field === "reviews_count") {
     const number = Number.parseInt(value || 0, 10);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  if (field === "rating") {
+    const number = Number.parseFloat(String(value || "0").replace(",", "."));
     return Number.isFinite(number) ? number : null;
   }
 
@@ -542,7 +559,7 @@ function normalizeValue(field, value) {
     return String(value || "").trim() || null;
   }
 
-  if (field === "is_active") {
+  if (field === "is_active" || field === "is_featured") {
     return Boolean(value);
   }
 

@@ -122,11 +122,15 @@ CREATE TABLE IF NOT EXISTS cases (
 
 CREATE TABLE IF NOT EXISTS reviews (
   id SERIAL PRIMARY KEY,
+  source TEXT NOT NULL DEFAULT 'manual',
   client_name TEXT NOT NULL,
   car TEXT,
   text TEXT NOT NULL,
+  review_text TEXT,
   rating INTEGER NOT NULL DEFAULT 5 CHECK (rating BETWEEN 1 AND 5),
-  source TEXT,
+  service_type TEXT,
+  source_url TEXT,
+  is_featured BOOLEAN NOT NULL DEFAULT FALSE,
   review_date DATE,
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -134,5 +138,19 @@ CREATE TABLE IF NOT EXISTS reviews (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS review_sources (
+  id SERIAL PRIMARY KEY,
+  source TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  rating NUMERIC(2, 1),
+  reviews_count INTEGER NOT NULL DEFAULT 0,
+  profile_url TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_cases_active_order ON cases (is_active, sort_order);
 CREATE INDEX IF NOT EXISTS idx_reviews_active_order ON reviews (is_active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_reviews_source_active ON reviews (source, is_active);
+CREATE INDEX IF NOT EXISTS idx_reviews_featured_order ON reviews (is_featured, sort_order);

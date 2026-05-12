@@ -232,9 +232,22 @@ const fallbackCases = [
 ];
 
 const fallbackReviews = [
-  { id: "review-1", client_name: "Алексей", car: "Volkswagen Tiguan", text: "Сначала сделали диагностику, объяснили варианты, лишнего не навязывали.", rating: 5 },
-  { id: "review-2", client_name: "Марина", car: "Audi A4", text: "Спокойно показали причину ошибки и согласовали стоимость до ремонта.", rating: 5 },
-  { id: "review-3", client_name: "Игорь", car: "Škoda Octavia", text: "Нашли стук, который долго не могли поймать. Машина стала тише.", rating: 5 },
+  { id: "review-1", source: "avito", client_name: "Алексей", car: "Volkswagen Tiguan", service_type: "Ремонт DSG", review_text: "Сначала сделали диагностику, объяснили варианты, лишнего не навязывали.", rating: 5, source_url: "https://www.avito.ru/brands/i215092804/all/predlozheniya_uslug?ysclid=mp31imxgav615450812&sellerId=89bf7d4f81745d02ee0d74285196d7e9" },
+  { id: "review-2", source: "manual", client_name: "Марина", car: "Audi A4", service_type: "Диагностика", review_text: "Спокойно показали причину ошибки и согласовали стоимость до ремонта.", rating: 5 },
+  { id: "review-3", source: "manual", client_name: "Игорь", car: "Škoda Octavia", service_type: "Подвеска", review_text: "Нашли стук, который долго не могли поймать. Машина стала тише.", rating: 5 },
+];
+
+const avitoProfileUrl = "https://www.avito.ru/brands/i215092804/all/predlozheniya_uslug?ysclid=mp31imxgav615450812&sellerId=89bf7d4f81745d02ee0d74285196d7e9";
+
+const fallbackReviewSources = [
+  {
+    id: "source-avito",
+    source: "avito",
+    title: "Авито",
+    rating: 4.9,
+    reviews_count: 36,
+    profile_url: avitoProfileUrl,
+  },
 ];
 
 const resourceConfig = {
@@ -303,13 +316,28 @@ const resourceConfig = {
     title: "Отзывы",
     hint: "Отзывы клиентов для главной и страницы отзывов.",
     fields: [
-      { name: "client_name", label: "Имя клиента" },
-      { name: "car", label: "Автомобиль" },
-      { name: "text", label: "Текст", type: "textarea" },
-      { name: "rating", label: "Оценка", type: "number" },
       { name: "source", label: "Источник" },
+      { name: "client_name", label: "Имя клиента" },
+      { name: "rating", label: "Оценка", type: "number" },
+      { name: "review_text", label: "Текст отзыва", type: "textarea" },
+      { name: "car", label: "Авто" },
+      { name: "service_type", label: "Услуга" },
       { name: "review_date", label: "Дата", type: "date" },
+      { name: "source_url", label: "Ссылка на отзыв/профиль" },
+      { name: "is_featured", label: "Показывать на главной", type: "checkbox" },
       { name: "sort_order", label: "Порядок", type: "number" },
+      { name: "is_active", label: "Активен", type: "checkbox" },
+    ],
+  },
+  "review-sources": {
+    title: "Источники отзывов",
+    hint: "Рейтинги внешних площадок, добавляются вручную без парсинга.",
+    fields: [
+      { name: "source", label: "Источник" },
+      { name: "title", label: "Название" },
+      { name: "rating", label: "Рейтинг", type: "number" },
+      { name: "reviews_count", label: "Количество отзывов", type: "number" },
+      { name: "profile_url", label: "Ссылка на профиль" },
       { name: "is_active", label: "Активен", type: "checkbox" },
     ],
   },
@@ -384,6 +412,8 @@ function PublicLanding({ navigate, path }) {
   const contacts = site?.contacts || [];
   const cases = site?.cases?.length ? site.cases : fallbackCases;
   const reviews = site?.reviews?.length ? site.reviews : fallbackReviews;
+  const reviewSources = site?.reviewSources?.length ? site.reviewSources : fallbackReviewSources;
+  const avitoSource = reviewSources.find((item) => item.source === "avito") || fallbackReviewSources[0];
   const services = (site?.services?.length ? site.services : defaultServices).map((service, index) => ({
     ...service,
     title: normalizeServiceTitle(service.title, index),
@@ -558,7 +588,7 @@ function PublicLanding({ navigate, path }) {
       {servicePage ? <ServiceDetailPage page={servicePage} navigate={navigate} /> : null}
       {brandPage ? <BrandSeoPage page={brandPage} navigate={navigate} /> : null}
       {isCasesPage ? <CasesPage cases={cases} navigate={navigate} /> : null}
-      {isReviewsPage ? <ReviewsPage reviews={reviews} navigate={navigate} /> : null}
+      {isReviewsPage ? <ReviewsPage reviews={reviews} reviewSources={reviewSources} navigate={navigate} /> : null}
 
       {isHome ? <section className="hero" id="top">
         <div className="container hero-inner">
@@ -728,7 +758,7 @@ function PublicLanding({ navigate, path }) {
       </section> : null}
 
       {isHome ? <CasesPreview cases={cases.slice(0, 3)} navigate={navigate} /> : null}
-      {isHome ? <ReviewsPreview reviews={reviews.slice(0, 3)} navigate={navigate} /> : null}
+      {isHome ? <ReviewsPreview reviews={reviews.filter((item) => item.is_featured !== false).slice(0, 6)} reviewSource={avitoSource} navigate={navigate} /> : null}
 
       {isHome ? <section className="section parts">
         <div className="container parts-inner">
@@ -1056,12 +1086,30 @@ function CasesPage({ cases, navigate }) {
   );
 }
 
-function ReviewsPage({ reviews, navigate }) {
+function ReviewsPage({ reviews, reviewSources, navigate }) {
+  const [filter, setFilter] = useState("all");
+  const avito = reviewSources.find((item) => item.source === "avito") || fallbackReviewSources[0];
+  const filteredReviews = filter === "all" ? reviews : reviews.filter((item) => item.source === filter);
+
   return (
     <section className="section route-section reviews-page">
       <div className="container">
-        <SectionHeading eyebrow="Отзывы" title="Что говорят владельцы VAG" text="Спокойные реальные впечатления без лишней рекламы." />
-        <ReviewGrid reviews={reviews} />
+        <SectionHeading eyebrow="Отзывы" title="Отзывы владельцев VAG" text="Отзывы с открытых площадок и клиентов Ber Car." />
+        <ReviewSummaryCard source={avito} />
+        <div className="review-filters" aria-label="Фильтр отзывов">
+          {[
+            ["all", "Все"],
+            ["avito", "Авито"],
+            ["yandex", "Яндекс"],
+            ["2gis", "2ГИС"],
+            ["manual", "Ручные"],
+          ].map(([value, label]) => (
+            <button type="button" className={filter === value ? "is-active" : ""} key={value} onClick={() => setFilter(value)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <ReviewGrid reviews={filteredReviews} />
         <button type="button" className="button button-primary" onClick={() => navigate("/booking")}>Оставить заявку</button>
       </div>
     </section>
@@ -1080,15 +1128,34 @@ function CasesPreview({ cases, navigate }) {
   );
 }
 
-function ReviewsPreview({ reviews, navigate }) {
+function ReviewsPreview({ reviews, reviewSource, navigate }) {
   return (
     <section className="section reviews-page">
       <div className="container">
-        <SectionHeading eyebrow="Отзывы" title="Доверие складывается из понятных деталей" text="Мы объясняем работу до ремонта и не превращаем диагностику в список лишних замен." />
+        <SectionHeading eyebrow="Отзывы" title="Отзывы владельцев VAG" text="Клиенты приезжают по рекомендациям и возвращаются на обслуживание." />
+        <ReviewSummaryCard source={reviewSource} compact />
         <ReviewGrid reviews={reviews} />
-        <button type="button" className="button button-secondary" onClick={() => navigate("/reviews")}>Все отзывы</button>
+        <div className="review-actions">
+          <button type="button" className="button button-secondary" onClick={() => navigate("/reviews")}>Читать отзывы</button>
+          <a className="button button-primary" href={reviewSource.profile_url || avitoProfileUrl} target="_blank" rel="noreferrer">Смотреть профиль на Авито</a>
+        </div>
       </div>
     </section>
+  );
+}
+
+function ReviewSummaryCard({ source, compact = false }) {
+  return (
+    <div className={`review-summary ${compact ? "is-compact" : ""}`}>
+      <div>
+        <strong>{formatRating(source.rating)} из 5</strong>
+        <span>{source.reviews_count || 0} отзывов на {source.title || "Авито"}</span>
+      </div>
+      <a href={source.profile_url || avitoProfileUrl} target="_blank" rel="noreferrer">
+        Смотреть профиль на Авито
+        <ArrowRight size={16} aria-hidden="true" />
+      </a>
+    </div>
   );
 }
 
@@ -1113,10 +1180,14 @@ function ReviewGrid({ reviews }) {
     <div className="review-grid">
       {reviews.map((item) => (
         <article className="review-card" key={item.id || `${item.client_name}-${item.car}`}>
-          <span>{"★".repeat(Number(item.rating || 5))}</span>
-          <p>{item.text}</p>
+          <div className="review-card-head">
+            <span>{"★".repeat(Math.round(Number(item.rating || 5)))}</span>
+            <small>{sourceLabel(item.source)}</small>
+          </div>
+          <p>{item.review_text || item.text}</p>
           <strong>{item.client_name}</strong>
-          <small>{item.car}</small>
+          <small>{[formatShortDate(item.review_date), item.car, item.service_type].filter(Boolean).join(" · ")}</small>
+          {item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Открыть на {sourceLabel(item.source)}</a> : null}
         </article>
       ))}
     </div>
@@ -1205,7 +1276,7 @@ function AdminDashboard({ navigate }) {
     cases: "cases",
     reviews: "reviews",
     contacts: "contacts",
-    settings: "content-blocks",
+    settings: "review-sources",
   };
   const activeResource = resourceBySection[section] || "content-blocks";
 
@@ -1251,7 +1322,7 @@ function AdminDashboard({ navigate }) {
             ["reviews", "Отзывы"],
             ["content", "Контент"],
             ["contacts", "Контакты"],
-            ["settings", "Настройки"],
+            ["settings", "Источники отзывов"],
           ].map(([key, label]) => (
             <button
               type="button"
@@ -1866,6 +1937,21 @@ function serializeForm(config, form) {
 function renderField(field, form, setForm) {
   const value = form[field.name];
 
+  if (field.name === "source") {
+    return (
+      <select
+        value={value}
+        onChange={(event) => setForm({ ...form, [field.name]: event.target.value })}
+      >
+        <option value="avito">Авито</option>
+        <option value="yandex">Яндекс</option>
+        <option value="2gis">2ГИС</option>
+        <option value="manual">Ручной</option>
+        <option value="other">Другое</option>
+      </select>
+    );
+  }
+
   if (field.type === "textarea") {
     return (
       <textarea
@@ -1888,6 +1974,7 @@ function renderField(field, form, setForm) {
   return (
     <input
       type={field.type || "text"}
+      step={field.name === "rating" ? "0.1" : undefined}
       value={value}
       onChange={(event) => setForm({ ...form, [field.name]: event.target.value })}
     />
@@ -2027,6 +2114,25 @@ function formatShortDate(value) {
 
 function formatShortTime(value) {
   return value ? String(value).slice(0, 5) : "";
+}
+
+function formatRating(value) {
+  return Number(value || 0).toLocaleString("ru-RU", {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
+  });
+}
+
+function sourceLabel(source) {
+  const labels = {
+    avito: "Авито",
+    yandex: "Яндекс",
+    "2gis": "2ГИС",
+    manual: "Ber Car",
+    other: "Другое",
+  };
+
+  return labels[source] || source || "Ber Car";
 }
 
 function leadStatusLabel(status) {

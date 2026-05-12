@@ -85,13 +85,30 @@ WHERE NOT EXISTS (
   SELECT 1 FROM cases WHERE cases.car = seed.car AND cases.problem = seed.problem
 );
 
-INSERT INTO reviews (client_name, car, text, rating, source, review_date, sort_order, is_active)
+INSERT INTO review_sources (source, title, rating, reviews_count, profile_url, is_active)
+VALUES (
+  'avito',
+  'Авито',
+  4.9,
+  36,
+  'https://www.avito.ru/brands/i215092804/all/predlozheniya_uslug?ysclid=mp31imxgav615450812&sellerId=89bf7d4f81745d02ee0d74285196d7e9',
+  TRUE
+)
+ON CONFLICT (source) DO UPDATE SET
+  title = EXCLUDED.title,
+  rating = EXCLUDED.rating,
+  reviews_count = EXCLUDED.reviews_count,
+  profile_url = EXCLUDED.profile_url,
+  is_active = EXCLUDED.is_active,
+  updated_at = NOW();
+
+INSERT INTO reviews (source, client_name, car, text, review_text, rating, service_type, source_url, is_featured, review_date, sort_order, is_active)
 SELECT *
 FROM (VALUES
-  ('Алексей', 'Volkswagen Tiguan', 'Приехал с рывками коробки. Сначала сделали диагностику, объяснили варианты, лишнего не навязывали.', 5, 'Сайт', CURRENT_DATE, 10, TRUE),
-  ('Марина', 'Audi A4', 'Понравилось, что перед ремонтом спокойно показали причину ошибки и согласовали стоимость.', 5, 'Клиент', CURRENT_DATE, 20, TRUE),
-  ('Игорь', 'Škoda Octavia', 'Нашли стук, который в другом сервисе не могли поймать. Машина стала тише.', 5, 'Сайт', CURRENT_DATE, 30, TRUE)
-) AS seed(client_name, car, text, rating, source, review_date, sort_order, is_active)
+  ('avito', 'Алексей', 'Volkswagen Tiguan', 'Приехал с рывками коробки. Сначала сделали диагностику, объяснили варианты, лишнего не навязывали.', 'Приехал с рывками коробки. Сначала сделали диагностику, объяснили варианты, лишнего не навязывали.', 5, 'Ремонт DSG', 'https://www.avito.ru/brands/i215092804/all/predlozheniya_uslug?ysclid=mp31imxgav615450812&sellerId=89bf7d4f81745d02ee0d74285196d7e9', TRUE, CURRENT_DATE, 10, TRUE),
+  ('manual', 'Марина', 'Audi A4', 'Понравилось, что перед ремонтом спокойно показали причину ошибки и согласовали стоимость.', 'Понравилось, что перед ремонтом спокойно показали причину ошибки и согласовали стоимость.', 5, 'Диагностика', NULL, TRUE, CURRENT_DATE, 20, TRUE),
+  ('manual', 'Игорь', 'Škoda Octavia', 'Нашли стук, который в другом сервисе не могли поймать. Машина стала тише.', 'Нашли стук, который в другом сервисе не могли поймать. Машина стала тише.', 5, 'Подвеска', NULL, TRUE, CURRENT_DATE, 30, TRUE)
+) AS seed(source, client_name, car, text, review_text, rating, service_type, source_url, is_featured, review_date, sort_order, is_active)
 WHERE NOT EXISTS (
-  SELECT 1 FROM reviews WHERE reviews.client_name = seed.client_name AND reviews.car = seed.car AND reviews.text = seed.text
+  SELECT 1 FROM reviews WHERE reviews.client_name = seed.client_name AND reviews.car = seed.car AND COALESCE(reviews.review_text, reviews.text) = seed.review_text
 );

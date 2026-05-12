@@ -32,6 +32,8 @@ async function request(path, options = {}) {
 
 export const api = {
   getSite: () => request("/api/public/site"),
+  getReviews: (source = "") => request(`/api/public/reviews${source ? `?source=${encodeURIComponent(source)}` : ""}`),
+  getReviewSummary: () => request("/api/public/review-summary"),
   getBookingSlots: (date) => request(`/api/public/booking-slots?date=${encodeURIComponent(date)}`),
   submitLead: (payload) =>
     request("/api/public/leads", {

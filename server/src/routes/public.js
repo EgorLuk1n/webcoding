@@ -39,9 +39,17 @@ const bookingTimes = [
   "18:00",
 ];
 
+const reviewSelect = `
+  id, source, client_name, rating,
+  COALESCE(review_text, text) AS review_text,
+  COALESCE(review_text, text) AS text,
+  car, service_type, review_date, source_url,
+  is_featured, sort_order
+`;
+
 publicRouter.get("/site", async (req, res, next) => {
   try {
-    const [contentBlocks, services, problems, contacts, cases, reviews] = await Promise.all([
+    const [contentBlocks, services, problems, contacts, cases, reviews, reviewSources] = await Promise.all([
       query(
         "SELECT id, section, title, subtitle, body, sort_order FROM content_blocks WHERE is_active = true ORDER BY sort_order, id",
       ),
@@ -58,11 +66,62 @@ publicRouter.get("/site", async (req, res, next) => {
         "SELECT id, car, car_year, mileage, problem, work_done, result, service, image_url, completed_at, sort_order FROM cases WHERE is_active = true ORDER BY sort_order, id",
       ),
       query(
-        "SELECT id, client_name, car, text, rating, source, review_date, sort_order FROM reviews WHERE is_active = true ORDER BY sort_order, id",
+        `SELECT ${reviewSelect} FROM reviews WHERE is_active = true ORDER BY is_featured DESC, sort_order, id`,
+      ),
+      query(
+        "SELECT id, source, title, rating, reviews_count, profile_url FROM review_sources WHERE is_active = true ORDER BY id",
       ),
     ]);
 
-    return res.json({ contentBlocks, services, problems, contacts, cases, reviews });
+    return res.json({ contentBlocks, services, problems, contacts, cases, reviews, reviewSources });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+publicRouter.get("/reviews", async (req, res, next) => {
+  try {
+    const source = clean(req.query.source);
+    const values = [];
+    let where = "WHERE is_active = true";
+
+    if (source && source !== "all") {
+      values.push(source);
+      where += ` AND source = $${values.length}`;
+    }
+
+    const items = await query(
+      `SELECT ${reviewSelect} FROM reviews ${where} ORDER BY is_featured DESC, sort_order, id`,
+      values,
+    );
+
+    return res.json({ items });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+publicRouter.get("/review-summary", async (req, res, next) => {
+  try {
+    const [sources, aggregate] = await Promise.all([
+      query("SELECT id, source, title, rating, reviews_count, profile_url FROM review_sources WHERE is_active = true ORDER BY id"),
+      query(
+        `SELECT
+          ROUND(AVG(rating)::numeric, 1) AS rating,
+          COUNT(*)::int AS reviews_count
+         FROM reviews
+         WHERE is_active = true`,
+      ),
+    ]);
+
+    const avito = sources.find((item) => item.source === "avito") || null;
+    return res.json({
+      rating: Number(avito?.rating || aggregate[0]?.rating || 0),
+      reviewsCount: Number(avito?.reviews_count || aggregate[0]?.reviews_count || 0),
+      manualReviewsCount: Number(aggregate[0]?.reviews_count || 0),
+      sources,
+      avito,
+    });
   } catch (error) {
     return next(error);
   }
