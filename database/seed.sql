@@ -73,3 +73,25 @@ VALUES
   ('Телефон', '+7 000 000-00-00', 'phone', 'tel:+70000000000', 20, TRUE),
   ('График', 'Ежедневно: 9:00-20:00', 'hours', NULL, 30, TRUE)
 ON CONFLICT (type, label) DO NOTHING;
+
+INSERT INTO cases (car, car_year, mileage, problem, work_done, result, service, sort_order, is_active)
+SELECT *
+FROM (VALUES
+  ('Audi A4 2.0 TFSI', 2016, 148000, 'Потеря мощности, ошибки по наддуву', 'Диагностика, нашли причину, устранили неисправность.', 'Автомобиль снова едет стабильно.', 'Диагностика VAG', 10, TRUE),
+  ('Volkswagen Tiguan', 2018, 121000, 'Пинки DSG', 'Диагностика коробки, проверка ошибок, адаптация.', 'Переключения стали мягче, клиент получил рекомендации.', 'Ремонт DSG', 20, TRUE),
+  ('Škoda Octavia', 2017, 132000, 'Стуки в подвеске', 'Диагностика ходовой, выявили изношенные элементы.', 'Посторонние звуки устранены.', 'Подвеска', 30, TRUE)
+) AS seed(car, car_year, mileage, problem, work_done, result, service, sort_order, is_active)
+WHERE NOT EXISTS (
+  SELECT 1 FROM cases WHERE cases.car = seed.car AND cases.problem = seed.problem
+);
+
+INSERT INTO reviews (client_name, car, text, rating, source, review_date, sort_order, is_active)
+SELECT *
+FROM (VALUES
+  ('Алексей', 'Volkswagen Tiguan', 'Приехал с рывками коробки. Сначала сделали диагностику, объяснили варианты, лишнего не навязывали.', 5, 'Сайт', CURRENT_DATE, 10, TRUE),
+  ('Марина', 'Audi A4', 'Понравилось, что перед ремонтом спокойно показали причину ошибки и согласовали стоимость.', 5, 'Клиент', CURRENT_DATE, 20, TRUE),
+  ('Игорь', 'Škoda Octavia', 'Нашли стук, который в другом сервисе не могли поймать. Машина стала тише.', 5, 'Сайт', CURRENT_DATE, 30, TRUE)
+) AS seed(client_name, car, text, rating, source, review_date, sort_order, is_active)
+WHERE NOT EXISTS (
+  SELECT 1 FROM reviews WHERE reviews.client_name = seed.client_name AND reviews.car = seed.car AND reviews.text = seed.text
+);

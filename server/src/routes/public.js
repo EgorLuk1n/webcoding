@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { query } from "../db/pool.js";
+import { publicLeadRateLimit } from "../middleware/security.js";
 import { formatLeadNotification, notifyAdmin } from "../services/telegram.js";
 
 export const publicRouter = Router();
@@ -7,6 +8,7 @@ export const publicRouter = Router();
 const serviceTypes = new Set([
   "Диагностика",
   "ТО",
+  "Техническое обслуживание",
   "Ремонт двигателя",
   "Ремонт DSG",
   "Подвеска",
@@ -39,7 +41,7 @@ const bookingTimes = [
 
 publicRouter.get("/site", async (req, res, next) => {
   try {
-    const [contentBlocks, services, problems, contacts] = await Promise.all([
+    const [contentBlocks, services, problems, contacts, cases, reviews] = await Promise.all([
       query(
         "SELECT id, section, title, subtitle, body, sort_order FROM content_blocks WHERE is_active = true ORDER BY sort_order, id",
       ),
@@ -52,9 +54,15 @@ publicRouter.get("/site", async (req, res, next) => {
       query(
         "SELECT id, label, value, type, href, sort_order FROM contacts WHERE is_active = true ORDER BY sort_order, id",
       ),
+      query(
+        "SELECT id, car, car_year, mileage, problem, work_done, result, service, image_url, completed_at, sort_order FROM cases WHERE is_active = true ORDER BY sort_order, id",
+      ),
+      query(
+        "SELECT id, client_name, car, text, rating, source, review_date, sort_order FROM reviews WHERE is_active = true ORDER BY sort_order, id",
+      ),
     ]);
 
-    return res.json({ contentBlocks, services, problems, contacts });
+    return res.json({ contentBlocks, services, problems, contacts, cases, reviews });
   } catch (error) {
     return next(error);
   }
@@ -108,7 +116,7 @@ publicRouter.get("/booking-slots", async (req, res, next) => {
   }
 });
 
-publicRouter.post("/leads", async (req, res, next) => {
+publicRouter.post("/leads", publicLeadRateLimit, async (req, res, next) => {
   try {
     const lead = normalizeLead(req.body);
 
@@ -136,7 +144,7 @@ publicRouter.post("/leads", async (req, res, next) => {
       return res.status(400).json({ message: "Выберите корректный тип услуги" });
     }
 
-    if (isPastSlot(lead.preferred_date, lead.preferred_time)) {
+    if (isPastDate(lead.preferred_date) || isPastSlot(lead.preferred_date, lead.preferred_time)) {
       return res.status(400).json({ message: "Нельзя выбрать прошедшее время." });
     }
 
@@ -151,13 +159,15 @@ publicRouter.post("/leads", async (req, res, next) => {
          name, phone, car, message,
          client_name, client_phone, car_brand, car_model, car_year,
          license_plate, mileage, service_type, problem_description,
-         preferred_date, preferred_time, client_comment, duration_minutes
+         preferred_date, preferred_time, client_comment, duration_minutes,
+         source, quiz_data
        )
        VALUES (
          $1, $2, $3, $4,
          $5, $6, $7, $8, $9,
          $10, $11, $12, $13,
-         $14, $15, $16, $17
+         $14, $15, $16, $17,
+         $18, $19
        )
        RETURNING *`,
       [
@@ -178,6 +188,8 @@ publicRouter.post("/leads", async (req, res, next) => {
         lead.preferred_time,
         lead.client_comment,
         60,
+        lead.source,
+        lead.quiz_data,
       ],
     );
 
@@ -206,8 +218,23 @@ function normalizeLead(body) {
     preferred_date: normalizeDate(body.preferred_date || body.preferredDate),
     preferred_time: normalizeTime(body.preferred_time || body.preferredTime),
     client_comment: clean(body.client_comment || body.clientComment),
+    source: normalizeSource(body.source),
+    quiz_data: normalizeQuizData(body.quiz_data || body.quizData),
     personal_data_agreement: Boolean(body.personal_data_agreement || body.personalDataAgreement),
   };
+}
+
+function normalizeSource(value) {
+  const source = clean(value || "form");
+  return ["form", "quiz"].includes(source) ? source : "form";
+}
+
+function normalizeQuizData(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value;
 }
 
 async function isSlotBusy(date, time, durationMinutes = 60) {

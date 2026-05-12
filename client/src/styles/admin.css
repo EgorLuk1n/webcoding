@@ -576,6 +576,54 @@
   font-weight: 850;
 }
 
+.stats-grid,
+.lead-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.lead-filters {
+  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(140px, 1fr)) auto;
+}
+
+.stat-card,
+.calendar-item {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  background: #f7f8fb;
+  border: 1px solid rgba(20, 20, 22, 0.07);
+  border-radius: 20px;
+}
+
+.stat-card span,
+.calendar-item small {
+  color: #747985;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.stat-card strong {
+  color: #171719;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.calendar-list {
+  display: grid;
+  gap: 10px;
+}
+
+.calendar-item strong {
+  color: #171719;
+}
+
+.calendar-item span {
+  color: #4f5561;
+}
+
 .leads-list p,
 .leads-list a {
   min-width: 0;
@@ -655,10 +703,26 @@
     width: 100%;
   }
 
+  .admin-sidebar nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: visible;
+  }
+
+  .admin-sidebar button,
+  .admin-sidebar a {
+    width: 100%;
+    min-height: 44px;
+    white-space: normal;
+    text-align: center;
+  }
+
   .admin-form,
   .records-list article,
   .lead-info-grid,
-  .lead-schedule {
+  .lead-schedule,
+  .stats-grid,
+  .lead-filters {
     grid-template-columns: 1fr;
   }
 
@@ -674,15 +738,36 @@
     display: grid;
     grid-template-columns: 1fr 44px;
   }
+
+  .lead-actions,
+  .lead-actions-primary,
+  .panel-actions,
+  .admin-form-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
 }
 
 @media (max-width: 430px) {
+  .login-shell {
+    padding: 14px;
+  }
+
+  .login-card h1 {
+    font-size: 32px;
+  }
+
   .admin-header nav {
     grid-template-columns: 1fr;
   }
 
   .admin-sidebar {
     padding: 14px;
+  }
+
+  .admin-sidebar nav {
+    grid-template-columns: 1fr;
   }
 
   .admin-brand {

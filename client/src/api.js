@@ -15,7 +15,7 @@ async function request(path, options = {}) {
 
     try {
       const payload = await response.json();
-      message = payload.message || message;
+      message = [payload.message, payload.details].filter(Boolean).join(": ") || message;
     } catch {
       message = response.statusText || message;
     }
@@ -64,7 +64,14 @@ export const api = {
     request(`/api/admin/${resource}/${id}`, {
       method: "DELETE",
     }),
-  listLeads: () => request("/api/admin/leads"),
+  listLeads: (params = {}) => {
+    const search = new URLSearchParams(
+      Object.entries(params).filter(([, value]) => value),
+    ).toString();
+    return request(`/api/admin/leads${search ? `?${search}` : ""}`);
+  },
+  dashboard: () => request("/api/admin/dashboard"),
+  calendar: (date) => request(`/api/admin/calendar${date ? `?date=${encodeURIComponent(date)}` : ""}`),
   getLead: (id) => request(`/api/admin/leads/${id}`),
   updateLead: (id, payload) =>
     request(`/api/admin/leads/${id}`, {

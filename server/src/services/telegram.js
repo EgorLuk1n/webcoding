@@ -1,3 +1,6 @@
+import https from "node:https";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import { SocksProxyAgent } from "socks-proxy-agent";
 import { logError, logInfo, logWarn, maskSecret } from "../utils/logger.js";
 
 const telegramStatus = {
@@ -8,8 +11,6 @@ const telegramStatus = {
   responseTimeMs: null,
   checkedAt: null,
 };
-
-let ProxyAgentClass;
 
 export function getTelegramStatus() {
   return { ...telegramStatus };
@@ -27,6 +28,7 @@ export async function sendTelegramMessage(message) {
 
   if (!token || !chatId) {
     const error = new Error("Telegram env is not configured");
+    error.code = "TELEGRAM_NOT_CONFIGURED";
     updateStatus(false, null, false, error, null);
     throw error;
   }
@@ -39,7 +41,7 @@ export async function sendTelegramMessage(message) {
       const started = Date.now();
 
       try {
-        const response = await telegramFetch(token, "sendMessage", {
+        const response = await telegramRequest(token, "sendMessage", {
           chat_id: chatId,
           text: message,
           parse_mode: "HTML",
@@ -48,8 +50,7 @@ export async function sendTelegramMessage(message) {
         const responseTimeMs = Date.now() - started;
 
         if (!response.ok) {
-          const payload = await response.text();
-          throw new Error(`Telegram HTTP ${response.status}: ${payload.slice(0, 300)}`);
+          throw new Error(`Telegram HTTP ${response.status}: ${response.body.slice(0, 300)}`);
         }
 
         updateStatus(true, attempt.proxy, index > 0, null, responseTimeMs);
@@ -90,7 +91,7 @@ export async function checkTelegramHealth() {
   for (const [index, attempt] of attempts.entries()) {
     const started = Date.now();
     try {
-      const response = await telegramFetch(token, "getMe", {}, attempt.proxy);
+      const response = await telegramRequest(token, "getMe", {}, attempt.proxy);
       const responseTimeMs = Date.now() - started;
 
       if (!response.ok) {
@@ -143,53 +144,67 @@ function buildTelegramAttempts() {
   ].filter(Boolean);
   const rotation = process.env.TELEGRAM_PROXY_ROTATION !== "false";
   const orderedProxies = rotation ? proxies : proxies.slice(0, 1);
-  return [{ proxy: null }, ...orderedProxies.map((proxy) => ({ proxy }))];
+  return orderedProxies.length > 0
+    ? orderedProxies.map((proxy) => ({ proxy }))
+    : [{ proxy: null }];
 }
 
-async function telegramFetch(token, method, payload, proxy) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  const options = {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: controller.signal,
-  };
+function telegramRequest(token, method, payload, proxy) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    const options = {
+      method: "POST",
+      hostname: "api.telegram.org",
+      path: `/bot${token}/${method}`,
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body),
+      },
+      timeout: 8000,
+      agent: proxy ? createProxyAgent(proxy) : undefined,
+    };
 
-  try {
-    if (proxy) {
-      const agent = await createProxyAgent(proxy);
-      if (agent) {
-        options.dispatcher = agent;
-      } else {
-        throw new Error("Proxy support requires undici package in production dependencies");
-      }
-    }
+    const req = https.request(options, (res) => {
+      let responseBody = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => {
+        responseBody += chunk;
+      });
+      res.on("end", () => {
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          body: responseBody,
+        });
+      });
+    });
 
-    return await fetch(`https://api.telegram.org/bot${token}/${method}`, options);
-  } finally {
-    clearTimeout(timer);
-  }
+    req.on("timeout", () => {
+      req.destroy(new Error("Telegram request timeout"));
+    });
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
 }
 
-async function createProxyAgent(proxy) {
-  if (!ProxyAgentClass) {
-    try {
-      const undici = await import("undici");
-      ProxyAgentClass = undici.ProxyAgent;
-    } catch {
-      return null;
-    }
+function createProxyAgent(proxy) {
+  if (/^socks5h?:\/\//i.test(proxy)) {
+    return new SocksProxyAgent(proxy);
   }
 
-  return new ProxyAgentClass(proxy);
+  if (/^https?:\/\//i.test(proxy)) {
+    return new HttpsProxyAgent(proxy);
+  }
+
+  throw new Error("Unsupported Telegram proxy protocol");
 }
 
 function updateStatus(reachable, proxy, fallbackUsed, error, responseTimeMs) {
   telegramStatus.telegramReachable = reachable;
   telegramStatus.currentProxy = proxy ? maskSecret(proxy) : null;
   telegramStatus.fallbackUsed = fallbackUsed;
-  telegramStatus.lastError = error ? error.message : null;
+  telegramStatus.lastError = error ? maskSecret(error.message) : null;
   telegramStatus.responseTimeMs = responseTimeMs;
   telegramStatus.checkedAt = new Date().toISOString();
 }

@@ -13,7 +13,9 @@
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
+    "https-proxy-agent": "latest",
     "jsonwebtoken": "latest",
-    "pg": "latest"
+    "pg": "latest",
+    "socks-proxy-agent": "latest"
   }
 }

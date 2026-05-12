@@ -31,6 +31,16 @@ const resources = {
     fields: ["label", "value", "type", "href", "sort_order", "is_active"],
     required: ["label", "value", "type"],
   },
+  cases: {
+    table: "cases",
+    fields: ["car", "car_year", "mileage", "problem", "work_done", "result", "service", "image_url", "completed_at", "sort_order", "is_active"],
+    required: ["car", "problem", "work_done", "result"],
+  },
+  reviews: {
+    table: "reviews",
+    fields: ["client_name", "car", "text", "rating", "source", "review_date", "sort_order", "is_active"],
+    required: ["client_name", "text"],
+  },
 };
 
 export const adminRouter = Router();
@@ -43,6 +53,7 @@ const leadSelect = `
   license_plate, mileage, service_type, problem_description,
   preferred_date, preferred_time, scheduled_start_at, scheduled_end_at,
   duration_minutes, client_comment, admin_comment, status,
+  source, quiz_data,
   cancelled_at, cancel_reason, rescheduled_at,
   previous_scheduled_start_at, previous_scheduled_end_at,
   created_at, updated_at
@@ -50,8 +61,12 @@ const leadSelect = `
 
 adminRouter.get("/leads", async (req, res, next) => {
   try {
+    const filters = buildLeadFilters(req.query);
     const leads = await query(
-      `SELECT ${leadSelect} FROM leads ORDER BY created_at DESC`,
+      `SELECT ${leadSelect} FROM leads
+       ${filters.where}
+       ORDER BY created_at DESC`,
+      filters.values,
     );
     return res.json({ items: leads });
   } catch (error) {
@@ -59,9 +74,54 @@ adminRouter.get("/leads", async (req, res, next) => {
   }
 });
 
+adminRouter.get("/dashboard", async (req, res, next) => {
+  try {
+    const [stats, latest] = await Promise.all([
+      query(
+        `SELECT
+          COUNT(*) FILTER (WHERE status = 'new')::int AS new_leads,
+          COUNT(*) FILTER (WHERE preferred_date = CURRENT_DATE)::int AS today_leads,
+          COUNT(*) FILTER (WHERE status = 'confirmed')::int AS confirmed,
+          COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled
+         FROM leads`,
+      ),
+      query(`SELECT ${leadSelect} FROM leads ORDER BY created_at DESC LIMIT 6`),
+    ]);
+
+    return res.json({ stats: stats[0], latest });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+adminRouter.get("/calendar", async (req, res, next) => {
+  try {
+    const date = String(req.query.date || "").slice(0, 10);
+    const values = [];
+    let where = "WHERE preferred_date IS NOT NULL";
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      values.push(date);
+      where += " AND preferred_date = $1";
+    }
+
+    const items = await query(
+      `SELECT ${leadSelect} FROM leads
+       ${where}
+       ORDER BY preferred_date, preferred_time, created_at`,
+      values,
+    );
+
+    return res.json({ items });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 adminRouter.get("/leads/:id", async (req, res, next) => {
   try {
-    const lead = await findLead(req.params.id);
+    const id = normalizeId(req.params.id);
+    const lead = await findLead(id);
 
     if (!lead) {
       return res.status(404).json({ message: "Заявка не найдена" });
@@ -75,7 +135,8 @@ adminRouter.get("/leads/:id", async (req, res, next) => {
 
 adminRouter.patch("/leads/:id", async (req, res, next) => {
   try {
-    const current = await findLead(req.params.id);
+    const id = normalizeId(req.params.id);
+    const current = await findLead(id);
 
     if (!current) {
       return res.status(404).json({ message: "Заявка не найдена" });
@@ -94,6 +155,7 @@ adminRouter.patch("/leads/:id", async (req, res, next) => {
     if (action === "confirm" || status === "confirmed") {
       const start = resolveStart(req.body, current);
       const end = addMinutes(start, durationMinutes);
+      assertFutureSlot(start);
       const busy = await isSlotBusy(start, end, current.id);
 
       if (busy) {
@@ -110,6 +172,7 @@ adminRouter.patch("/leads/:id", async (req, res, next) => {
     if (action === "reschedule" || status === "rescheduled") {
       const start = resolveStart(req.body, current);
       const end = addMinutes(start, durationMinutes);
+      assertFutureSlot(start);
       const busy = await isSlotBusy(start, end, current.id);
 
       if (busy) {
@@ -142,7 +205,7 @@ adminRouter.patch("/leads/:id", async (req, res, next) => {
        SET ${setters.join(", ")}, updated_at = NOW()
        WHERE id = $${fields.length + 1}
        RETURNING ${leadSelect}`,
-      [...values, req.params.id],
+      [...values, id],
     );
 
     if (updates.status === "confirmed") {
@@ -164,13 +227,14 @@ adminRouter.patch("/leads/:id", async (req, res, next) => {
 
 adminRouter.delete("/leads/:id", async (req, res, next) => {
   try {
-    const deleted = await query("DELETE FROM leads WHERE id = $1 RETURNING id", [req.params.id]);
+    const id = normalizeId(req.params.id);
+    const deleted = await query("DELETE FROM leads WHERE id = $1 RETURNING id", [id]);
 
     if (deleted.length === 0) {
       return res.status(404).json({ message: "Заявка не найдена" });
     }
 
-    audit(req, "delete_lead", { leadId: req.params.id });
+    audit(req, "delete_lead", { leadId: id });
     return res.status(204).send();
   } catch (error) {
     return next(error);
@@ -179,7 +243,8 @@ adminRouter.delete("/leads/:id", async (req, res, next) => {
 
 adminRouter.get("/leads/:id/calendar.ics", async (req, res, next) => {
   try {
-    const lead = await findLead(req.params.id);
+    const id = normalizeId(req.params.id);
+    const lead = await findLead(id);
 
     if (!lead) {
       return res.status(404).json({ message: "Заявка не найдена" });
@@ -206,9 +271,15 @@ adminRouter.post("/test-telegram-notification", async (req, res, next) => {
   try {
     const result = await sendTelegramMessage("Тестовое уведомление Ber Car");
     audit(req, "test_telegram_notification");
-    return res.json({ ok: true, ...result, status: getTelegramStatus() });
+    return res.json({ ok: true, message: "Telegram notification sent", ...result, status: getTelegramStatus() });
   } catch (error) {
-    return res.status(502).json({ ok: false, message: error.message, status: getTelegramStatus() });
+    const isConfigError = error.code === "TELEGRAM_NOT_CONFIGURED";
+    return res.status(isConfigError ? 200 : 502).json({
+      ok: false,
+      message: isConfigError ? "Telegram is not configured" : "Telegram notification failed",
+      details: isConfigError ? undefined : error.message,
+      status: getTelegramStatus(),
+    });
   }
 });
 
@@ -250,6 +321,7 @@ adminRouter.post("/:resource", async (req, res, next) => {
 adminRouter.put("/:resource/:id", async (req, res, next) => {
   try {
     const config = getResource(req.params.resource);
+    const id = normalizeId(req.params.id);
     const payload = buildPayload(config, req.body);
 
     if (Object.keys(payload).length === 0) {
@@ -267,7 +339,7 @@ adminRouter.put("/:resource/:id", async (req, res, next) => {
        SET ${setters.join(", ")}, updated_at = NOW()
        WHERE id = $${fields.length + 1}
        RETURNING *`,
-      [...values, req.params.id],
+      [...values, id],
     );
 
     if (!item) {
@@ -283,16 +355,17 @@ adminRouter.put("/:resource/:id", async (req, res, next) => {
 adminRouter.delete("/:resource/:id", async (req, res, next) => {
   try {
     const config = getResource(req.params.resource);
+    const id = normalizeId(req.params.id);
     const deleted = await query(
       `DELETE FROM ${config.table} WHERE id = $1 RETURNING id`,
-      [req.params.id],
+      [id],
     );
 
     if (deleted.length === 0) {
       return res.status(404).json({ message: "Запись не найдена" });
     }
 
-    audit(req, "delete_resource", { resource: req.params.resource, id: req.params.id });
+    audit(req, "delete_resource", { resource: req.params.resource, id });
     return res.status(204).send();
   } catch (error) {
     return next(error);
@@ -309,6 +382,53 @@ function getResource(resourceName) {
   }
 
   return config;
+}
+
+function buildLeadFilters(queryParams) {
+  const clauses = [];
+  const values = [];
+  const status = String(queryParams.status || "").trim();
+  const date = String(queryParams.date || "").trim();
+  const service = String(queryParams.service || "").trim();
+  const search = String(queryParams.search || "").trim();
+
+  if (status) {
+    validateLeadStatus(status);
+    values.push(status);
+    clauses.push(`status = $${values.length}`);
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    values.push(date);
+    clauses.push(`preferred_date = $${values.length}`);
+  }
+
+  if (service) {
+    values.push(service);
+    clauses.push(`service_type = $${values.length}`);
+  }
+
+  if (search) {
+    values.push(`%${search}%`);
+    clauses.push(`(client_name ILIKE $${values.length} OR client_phone ILIKE $${values.length} OR car ILIKE $${values.length})`);
+  }
+
+  return {
+    where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+    values,
+  };
+}
+
+function normalizeId(value) {
+  const id = Number.parseInt(value, 10);
+
+  if (!Number.isInteger(id) || id < 1 || String(id) !== String(value)) {
+    const error = new Error("Некорректный идентификатор");
+    error.status = 400;
+    throw error;
+  }
+
+  return id;
 }
 
 async function findLead(id) {
@@ -358,6 +478,14 @@ function resolveStart(body, lead) {
   return start;
 }
 
+function assertFutureSlot(start) {
+  if (start < addMinutes(new Date(), 60)) {
+    const error = new Error("Нельзя выбрать прошедшее время.");
+    error.status = 400;
+    throw error;
+  }
+}
+
 function addMinutes(date, minutes) {
   return new Date(date.getTime() + minutes * 60 * 1000);
 }
@@ -403,6 +531,15 @@ function buildPayload(config, body) {
 function normalizeValue(field, value) {
   if (field === "sort_order") {
     return Number.parseInt(value || 0, 10);
+  }
+
+  if (field === "car_year" || field === "mileage" || field === "rating") {
+    const number = Number.parseInt(value || 0, 10);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  if (field === "completed_at" || field === "review_date") {
+    return String(value || "").trim() || null;
   }
 
   if (field === "is_active") {

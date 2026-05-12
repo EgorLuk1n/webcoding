@@ -1,19 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://example.com/</loc>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://example.com/services</loc>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://example.com/booking</loc>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://example.com/contacts</loc>
-    <priority>0.7</priority>
-  </url>
+  <url><loc>http://194.67.116.39/</loc><priority>1.0</priority></url>
+  <url><loc>http://194.67.116.39/services</loc><priority>0.9</priority></url>
+  <url><loc>http://194.67.116.39/services/dsg</loc><priority>0.9</priority></url>
+  <url><loc>http://194.67.116.39/services/diagnostics</loc><priority>0.8</priority></url>
+  <url><loc>http://194.67.116.39/services/maintenance</loc><priority>0.8</priority></url>
+  <url><loc>http://194.67.116.39/services/engine</loc><priority>0.8</priority></url>
+  <url><loc>http://194.67.116.39/services/electric</loc><priority>0.8</priority></url>
+  <url><loc>http://194.67.116.39/remont-volkswagen-kaluga</loc><priority>0.8</priority></url>
+  <url><loc>http://194.67.116.39/remont-audi-kaluga</loc><priority>0.8</priority></url>
+  <url><loc>http://194.67.116.39/remont-skoda-kaluga</loc><priority>0.8</priority></url>
+  <url><loc>http://194.67.116.39/remont-seat-kaluga</loc><priority>0.8</priority></url>
+  <url><loc>http://194.67.116.39/cases</loc><priority>0.7</priority></url>
+  <url><loc>http://194.67.116.39/reviews</loc><priority>0.7</priority></url>
+  <url><loc>http://194.67.116.39/booking</loc><priority>0.8</priority></url>
+  <url><loc>http://194.67.116.39/contacts</loc><priority>0.7</priority></url>
 </urlset>

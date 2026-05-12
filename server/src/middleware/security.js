@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { logInfo, logWarn } from "../utils/logger.js";
 
 const loginAttempts = new Map();
+const publicLeadAttempts = new Map();
 
 export function requestLogger(req, res, next) {
   const started = Date.now();
@@ -52,6 +53,25 @@ export function loginRateLimit(req, res, next) {
 
   req.loginAttemptKey = key;
   req.loginAttemptEntry = entry;
+  return next();
+}
+
+export function publicLeadRateLimit(req, res, next) {
+  const key = req.ip;
+  const now = Date.now();
+  const windowMs = 10 * 60 * 1000;
+  const entry = publicLeadAttempts.get(key) || { count: 0, firstAt: now };
+  const nextEntry = now - entry.firstAt > windowMs
+    ? { count: 1, firstAt: now }
+    : { ...entry, count: entry.count + 1 };
+
+  publicLeadAttempts.set(key, nextEntry);
+
+  if (nextEntry.count > 8) {
+    logWarn("public_lead_rate_limited", { ip: req.ip });
+    return res.status(429).json({ message: "Слишком много заявок. Попробуйте позже." });
+  }
+
   return next();
 }
 

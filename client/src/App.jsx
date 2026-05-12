@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   BatteryCharging,
@@ -59,7 +60,7 @@ const defaultServices = [
   "Подвеска",
   "Тормозная система",
   "Электрика",
-  "Прочие работы",
+  "Запчасти",
 ].map((title, index) => ({
   id: `default-service-${index}`,
   title,
@@ -115,8 +116,93 @@ const initialLead = {
   preferred_date: getTodayDate(),
   preferred_time: "",
   client_comment: "",
+  source: "form",
+  quiz_data: null,
   personal_data_agreement: false,
 };
+
+const servicePageData = {
+  "/services/dsg": {
+    eyebrow: "DSG",
+    title: "Ремонт и диагностика DSG в Калуге",
+    subtitle: "Пинки, рывки, задержки переключений, ошибки коробки — проведём диагностику и предложим решение без лишних работ.",
+    symptoms: ["Коробка пинается при переключениях", "Есть рывки при старте", "Задержка включения D/R", "Вибрации при разгоне", "Ошибки по коробке", "Пробуксовки", "Машина плохо трогается", "После замены масла стало хуже"],
+    work: ["Диагностика DSG", "Проверка ошибок", "Адаптация DSG", "Замена масла", "Проверка мехатроника", "Проверка сцепления", "Подбор решения после диагностики"],
+    steps: ["Опрос клиента", "Компьютерная диагностика", "Тест-драйв при необходимости", "Анализ ошибок и поведения коробки", "Объяснение результата", "Согласование ремонта"],
+    cta: "Записаться на диагностику DSG",
+  },
+  "/services/diagnostics": {
+    eyebrow: "Диагностика",
+    title: "Диагностика VAG в Калуге",
+    subtitle: "Компьютерная и механическая проверка Volkswagen, Audi, Škoda, SEAT перед ремонтом.",
+    symptoms: ["Горит Check Engine", "Плавающая ошибка", "Потеря тяги", "Нестабильная работа", "Шумы и вибрации", "Проверка перед покупкой"],
+    work: ["Чтение ошибок", "Проверка параметров", "Осмотр узлов", "Поиск причины", "Рекомендации по ремонту"],
+    steps: ["Собираем симптомы", "Подключаем диагностику", "Проверяем механику", "Объясняем выводы", "Согласуем следующий шаг"],
+    cta: "Записаться на диагностику",
+  },
+  "/services/maintenance": {
+    eyebrow: "ТО",
+    title: "Техническое обслуживание VAG",
+    subtitle: "Регламентное обслуживание и проверка основных узлов без лишних замен.",
+    symptoms: ["Подошёл срок ТО", "Нужна замена масла", "Проверка перед поездкой", "Неясная история обслуживания"],
+    work: ["Масло и фильтры", "Жидкости", "Осмотр подвески", "Проверка тормозов", "Рекомендации по состоянию"],
+    steps: ["Проверяем историю", "Подбираем расходники", "Выполняем ТО", "Осматриваем авто", "Отдаём рекомендации"],
+    cta: "Записаться на ТО",
+  },
+  "/services/engine": {
+    eyebrow: "Двигатель",
+    title: "Ремонт двигателя VAG в Калуге",
+    subtitle: "Диагностика троения, расхода масла, потери мощности и ошибок двигателя.",
+    symptoms: ["Троит двигатель", "Расход масла", "Потеря мощности", "Плохой запуск", "Ошибки по смеси", "Посторонние звуки"],
+    work: ["Диагностика двигателя", "Проверка параметров", "Поиск подсоса", "Проверка навесного", "Согласование ремонта"],
+    steps: ["Фиксируем жалобу", "Читаем ошибки", "Проверяем параметры", "Находим причину", "Объясняем варианты"],
+    cta: "Записаться по двигателю",
+  },
+  "/services/electric": {
+    eyebrow: "Электрика",
+    title: "Электрика VAG в Калуге",
+    subtitle: "Ошибки, датчики, проводка, блоки управления и нестабильная работа электроники.",
+    symptoms: ["Плавающие ошибки", "Не работает оборудование", "Проблемы с датчиками", "Разряжается АКБ", "Ошибки после ремонта"],
+    work: ["Компьютерная диагностика", "Проверка питания", "Проверка проводки", "Поиск нестабильных ошибок", "Ремонт по согласованию"],
+    steps: ["Собираем симптомы", "Проверяем ошибки", "Ищем причину", "Показываем результат", "Согласуем ремонт"],
+    cta: "Записаться к электрику",
+  },
+};
+
+const brandPages = {
+  "/remont-volkswagen-kaluga": {
+    brand: "Volkswagen",
+    text: "Ber Car обслуживает и ремонтирует автомобили Volkswagen: диагностика, ТО, двигатель, DSG, подвеска, электрика и тормозная система.",
+    problems: ["DSG пинается", "Горит Check Engine", "Потеря тяги", "Стуки в подвеске", "Ошибки по электрике"],
+  },
+  "/remont-audi-kaluga": {
+    brand: "Audi",
+    text: "Работаем с Audi аккуратно и по делу: сначала диагностика, затем понятный план ремонта и подбор запчастей под задачу.",
+    problems: ["Ошибки по наддуву", "Нестабильная работа двигателя", "Рывки коробки", "Повышенный расход масла", "Электронные ошибки"],
+  },
+  "/remont-skoda-kaluga": {
+    brand: "Škoda",
+    text: "Помогаем владельцам Škoda с обслуживанием, диагностикой и ремонтом типовых VAG-узлов без лишних работ.",
+    problems: ["Стуки ходовой", "Проблемы DSG", "Ошибки двигателя", "ТО после покупки", "Проверка перед дальней поездкой"],
+  },
+  "/remont-seat-kaluga": {
+    brand: "SEAT",
+    text: "Берёмся за SEAT на той же VAG-базе: диагностика, обслуживание, двигатель, коробка и электрика.",
+    problems: ["Потеря мощности", "Ошибки по датчикам", "Рывки коробки", "Стуки подвески", "Проблемы после покупки"],
+  },
+};
+
+const fallbackCases = [
+  { id: "case-a4", car: "Audi A4 2.0 TFSI", car_year: 2016, mileage: 148000, problem: "Потеря мощности, ошибки по наддуву", work_done: "Диагностика, нашли причину, устранили неисправность.", result: "Автомобиль снова едет стабильно.", service: "Диагностика VAG" },
+  { id: "case-tiguan", car: "Volkswagen Tiguan", car_year: 2018, mileage: 121000, problem: "Пинки DSG", work_done: "Диагностика коробки, проверка ошибок, адаптация.", result: "Переключения стали мягче, клиент получил рекомендации.", service: "Ремонт DSG" },
+  { id: "case-octavia", car: "Škoda Octavia", car_year: 2017, mileage: 132000, problem: "Стуки в подвеске", work_done: "Диагностика ходовой, выявили изношенные элементы.", result: "Посторонние звуки устранены.", service: "Подвеска" },
+];
+
+const fallbackReviews = [
+  { id: "review-1", client_name: "Алексей", car: "Volkswagen Tiguan", text: "Сначала сделали диагностику, объяснили варианты, лишнего не навязывали.", rating: 5 },
+  { id: "review-2", client_name: "Марина", car: "Audi A4", text: "Спокойно показали причину ошибки и согласовали стоимость до ремонта.", rating: 5 },
+  { id: "review-3", client_name: "Игорь", car: "Škoda Octavia", text: "Нашли стук, который долго не могли поймать. Машина стала тише.", rating: 5 },
+];
 
 const resourceConfig = {
   "content-blocks": {
@@ -163,22 +249,56 @@ const resourceConfig = {
       { name: "is_active", label: "Активен", type: "checkbox" },
     ],
   },
+  cases: {
+    title: "Кейсы",
+    hint: "Истории ремонтов для доверия на сайте.",
+    fields: [
+      { name: "car", label: "Автомобиль" },
+      { name: "car_year", label: "Год", type: "number" },
+      { name: "mileage", label: "Пробег", type: "number" },
+      { name: "problem", label: "Проблема", type: "textarea" },
+      { name: "work_done", label: "Что сделали", type: "textarea" },
+      { name: "result", label: "Результат", type: "textarea" },
+      { name: "service", label: "Услуга" },
+      { name: "image_url", label: "Фото URL" },
+      { name: "completed_at", label: "Дата", type: "date" },
+      { name: "sort_order", label: "Порядок", type: "number" },
+      { name: "is_active", label: "Активен", type: "checkbox" },
+    ],
+  },
+  reviews: {
+    title: "Отзывы",
+    hint: "Отзывы клиентов для главной и страницы отзывов.",
+    fields: [
+      { name: "client_name", label: "Имя клиента" },
+      { name: "car", label: "Автомобиль" },
+      { name: "text", label: "Текст", type: "textarea" },
+      { name: "rating", label: "Оценка", type: "number" },
+      { name: "source", label: "Источник" },
+      { name: "review_date", label: "Дата", type: "date" },
+      { name: "sort_order", label: "Порядок", type: "number" },
+      { name: "is_active", label: "Активен", type: "checkbox" },
+    ],
+  },
 };
 
 const resourceKeys = Object.keys(resourceConfig);
 
 function App() {
-  const [path, setPath] = useState(window.location.pathname);
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
+  );
+}
 
-  useEffect(() => {
-    const onPopState = () => setPath(window.location.pathname);
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+function AppRoutes() {
+  const location = useLocation();
+  const routerNavigate = useNavigate();
+  const path = location.pathname;
 
   const navigate = (nextPath) => {
-    window.history.pushState({}, "", nextPath);
-    setPath(nextPath);
+    routerNavigate(nextPath);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -186,7 +306,11 @@ function App() {
     return <LoginPage navigate={navigate} />;
   }
 
-  if (path === "/bercar-control/dashboard") {
+  if (path === "/admin/login") {
+    return <LegacyAdminRedirect navigate={navigate} />;
+  }
+
+  if (path.startsWith("/bercar-control/")) {
     return <AdminDashboard navigate={navigate} />;
   }
 
@@ -203,6 +327,11 @@ function PublicLanding({ navigate, path }) {
   const [slots, setSlots] = useState([]);
   const [slotsStatus, setSlotsStatus] = useState("");
   const [logoClicks, setLogoClicks] = useState(0);
+  const [quiz, setQuiz] = useState({
+    brand: "Volkswagen",
+    area: "DSG / коробка",
+    symptom: "Пинки/рывки",
+  });
 
   useEffect(() => {
     api
@@ -220,6 +349,8 @@ function PublicLanding({ navigate, path }) {
   }, [site]);
 
   const contacts = site?.contacts || [];
+  const cases = site?.cases?.length ? site.cases : fallbackCases;
+  const reviews = site?.reviews?.length ? site.reviews : fallbackReviews;
   const services = (site?.services?.length ? site.services : defaultServices).map((service, index) => ({
     ...service,
     title: normalizeServiceTitle(service.title, index),
@@ -235,6 +366,23 @@ function PublicLanding({ navigate, path }) {
   const isServicesPage = path === "/services";
   const isBookingPage = path === "/booking";
   const isContactsPage = path === "/contacts";
+  const isCasesPage = path === "/cases";
+  const isReviewsPage = path === "/reviews";
+  const servicePage = servicePageData[path];
+  const brandPage = brandPages[path];
+
+  useEffect(() => {
+    const titles = {
+      "/": "Ber Car — ремонт VAG автомобилей в Калуге",
+      "/services": "Услуги Ber Car — VAG сервис в Калуге",
+      "/services/dsg": "Ремонт DSG в Калуге — диагностика Volkswagen, Audi, Škoda, SEAT",
+      "/cases": "Кейсы Ber Car — ремонт VAG в Калуге",
+      "/reviews": "Отзывы Ber Car — VAG сервис в Калуге",
+      "/contacts": "Контакты Ber Car в Калуге",
+      "/booking": "Запись в Ber Car — диагностика и ремонт VAG",
+    };
+    document.title = titles[path] || (brandPage ? `Ремонт ${brandPage.brand} в Калуге — Ber Car` : "Ber Car — VAG сервис в Калуге");
+  }, [path, brandPage]);
 
   const closeMenu = () => setMenuOpen(false);
   const goToSection = (sectionId) => {
@@ -311,6 +459,27 @@ function PublicLanding({ navigate, path }) {
       setLeadStatus({ type: "error", text: requestError.message });
     }
   };
+  const applyQuiz = () => {
+    const serviceByArea = {
+      "Двигатель": "Ремонт двигателя",
+      "DSG / коробка": "Ремонт DSG",
+      "Подвеска": "Подвеска",
+      "Электрика": "Электрика",
+      "Тормоза": "Тормозная система",
+      "ТО": "ТО",
+      "Не знаю": "Диагностика",
+    };
+
+    setLead({
+      ...lead,
+      car_brand: quiz.brand === "Другое" ? lead.car_brand : quiz.brand,
+      service_type: serviceByArea[quiz.area] || "Диагностика",
+      problem_description: [quiz.area, quiz.symptom].filter(Boolean).join(": "),
+      source: "quiz",
+      quiz_data: quiz,
+    });
+    setLeadStatus({ type: "info", text: "Квиз перенесён в форму. Осталось указать контакты и удобное время." });
+  };
 
   if (loading) {
     return <LoadingScreen text="Загружаем Ber Car" />;
@@ -328,7 +497,8 @@ function PublicLanding({ navigate, path }) {
           <nav className={`nav-links ${menuOpen ? "is-open" : ""}`} aria-label="Основная навигация">
             <button type="button" onClick={() => { closeMenu(); navigate("/"); }}>Главная</button>
             <button type="button" onClick={() => { closeMenu(); navigate("/services"); }}>Услуги</button>
-            <button type="button" onClick={() => goToSection("approach")}>Подход</button>
+            <button type="button" onClick={() => { closeMenu(); navigate("/services/dsg"); }}>DSG</button>
+            <button type="button" onClick={() => { closeMenu(); navigate("/cases"); }}>Кейсы</button>
             <button type="button" onClick={() => { closeMenu(); navigate("/booking"); }}>Запись</button>
             <button type="button" onClick={() => { closeMenu(); navigate("/contacts"); }}>Контакты</button>
           </nav>
@@ -352,6 +522,11 @@ function PublicLanding({ navigate, path }) {
 
       {error ? <div className="api-warning">API: {error}</div> : null}
 
+      {servicePage ? <ServiceDetailPage page={servicePage} navigate={navigate} /> : null}
+      {brandPage ? <BrandSeoPage page={brandPage} navigate={navigate} /> : null}
+      {isCasesPage ? <CasesPage cases={cases} navigate={navigate} /> : null}
+      {isReviewsPage ? <ReviewsPage reviews={reviews} navigate={navigate} /> : null}
+
       {isHome ? <section className="hero" id="top">
         <div className="container hero-inner">
           <div className="hero-copy">
@@ -359,7 +534,7 @@ function PublicLanding({ navigate, path }) {
             <h1>Профессиональный ремонт VAG в Калуге</h1>
             <p className="hero-subtitle">Диагностика, обслуживание и ремонт без лишних работ</p>
             <p className="hero-lead">
-              Volkswagen, Audi, Škoda, SEAT — диагностика, обслуживание и ремонт без лишних работ.
+              Volkswagen, Audi, Škoda, SEAT — точная диагностика, честный ремонт и подбор запчастей под задачу и бюджет.
             </p>
 
             <div className="hero-actions" aria-label="Основные действия">
@@ -381,7 +556,13 @@ function PublicLanding({ navigate, path }) {
           </div>
 
           <div className="hero-visual" aria-hidden="true">
-            <div className="hero-photo" />
+            <div className="hero-image-card">
+              <img
+                src="https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=1200&q=82"
+                alt=""
+                loading="eager"
+              />
+            </div>
           </div>
         </div>
       </section> : null}
@@ -427,6 +608,12 @@ function PublicLanding({ navigate, path }) {
                   <Icon size={28} strokeWidth={1.9} aria-hidden="true" />
                   <h3>{service.title}</h3>
                   <p>{service.description}</p>
+                  <div className="service-actions">
+                    <button type="button" onClick={() => navigate("/booking")}>Записаться</button>
+                    {serviceDetailPath(service.title) ? (
+                      <button type="button" onClick={() => navigate(serviceDetailPath(service.title))}>Подробнее</button>
+                    ) : null}
+                  </div>
                 </article>
               );
             })}
@@ -476,6 +663,23 @@ function PublicLanding({ navigate, path }) {
         </div>
       </section> : null}
 
+      {isHome ? <section className="section dsg-feature">
+        <div className="container feature-grid">
+          <div>
+            <p className="eyebrow">DSG</p>
+            <h2>Рывки и пинки коробки не лечатся догадками.</h2>
+            <p>Сначала проводим диагностику, смотрим ошибки и поведение коробки, затем объясняем варианты решения.</p>
+          </div>
+          <button type="button" className="button button-primary" onClick={() => navigate("/services/dsg")}>
+            Подробнее про DSG
+            <ArrowRight size={18} aria-hidden="true" />
+          </button>
+        </div>
+      </section> : null}
+
+      {isHome ? <CasesPreview cases={cases.slice(0, 3)} navigate={navigate} /> : null}
+      {isHome ? <ReviewsPreview reviews={reviews.slice(0, 3)} navigate={navigate} /> : null}
+
       {isHome ? <section className="section parts">
         <div className="container parts-inner">
           <p className="eyebrow">{blocks.parts?.subtitle || "Запчасти"}</p>
@@ -509,7 +713,7 @@ function PublicLanding({ navigate, path }) {
         </div>
       </section> : null}
 
-      {(isHome || isBookingPage || isContactsPage) ? <section className={`section contacts ${(isBookingPage || isContactsPage) ? "route-section" : ""}`} id="contacts">
+      {(isHome || isBookingPage || isContactsPage || servicePage || brandPage) ? <section className={`section contacts ${(isBookingPage || isContactsPage || servicePage || brandPage) ? "route-section" : ""}`} id="contacts">
         <div className="container contact-grid">
           <div className="contact-copy">
             <p className="eyebrow">{isContactsPage ? "Контакты" : "Запись"}</p>
@@ -530,6 +734,32 @@ function PublicLanding({ navigate, path }) {
           </div>
 
           {!isContactsPage ? <form className="lead-form" onSubmit={submitLead}>
+            <div className="quiz-box">
+              <div>
+                <p className="eyebrow">Квиз</p>
+                <h3>Что случилось с машиной?</h3>
+                <span>Ответьте на три вопроса — мы подставим услугу и описание в заявку.</span>
+              </div>
+              <label>
+                Марка
+                <select value={quiz.brand} onChange={(event) => setQuiz({ ...quiz, brand: event.target.value })}>
+                  {["Volkswagen", "Audi", "Škoda", "SEAT", "Другое"].map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label>
+                Что беспокоит
+                <select value={quiz.area} onChange={(event) => setQuiz({ ...quiz, area: event.target.value })}>
+                  {["Двигатель", "DSG / коробка", "Подвеска", "Электрика", "Тормоза", "ТО", "Не знаю"].map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label>
+                Как проявляется
+                <select value={quiz.symptom} onChange={(event) => setQuiz({ ...quiz, symptom: event.target.value })}>
+                  {["Горит ошибка", "Стук/шум", "Пинки/рывки", "Потеря мощности", "Течь/запах", "Другое"].map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <button type="button" className="button button-secondary" onClick={applyQuiz}>Заполнить форму по квизу</button>
+            </div>
             <label>
               Имя клиента
               <input
@@ -709,8 +939,150 @@ function SectionHeading({ eyebrow, title, text }) {
   );
 }
 
+function ServiceDetailPage({ page, navigate }) {
+  return (
+    <section className="section route-section detail-page">
+      <div className="container detail-hero">
+        <p className="eyebrow">{page.eyebrow}</p>
+        <h1>{page.title}</h1>
+        <p>{page.subtitle}</p>
+        <button type="button" className="button button-primary" onClick={() => navigate("/booking")}>
+          {page.cta}
+          <ArrowRight size={18} aria-hidden="true" />
+        </button>
+      </div>
+      <div className="container detail-grid">
+        <DetailList title="Когда стоит обратиться" items={page.symptoms} />
+        <DetailList title="Что делаем" items={page.work} />
+        <DetailList title="Как проходит работа" items={page.steps} ordered />
+      </div>
+    </section>
+  );
+}
+
+function BrandSeoPage({ page, navigate }) {
+  return (
+    <section className="section route-section detail-page">
+      <div className="container detail-hero">
+        <p className="eyebrow">VAG в Калуге</p>
+        <h1>Ремонт {page.brand} в Калуге</h1>
+        <p>{page.text}</p>
+        <button type="button" className="button button-primary" onClick={() => navigate("/booking")}>
+          Записаться
+          <ArrowRight size={18} aria-hidden="true" />
+        </button>
+      </div>
+      <div className="container detail-grid">
+        <DetailList title={`Частые проблемы ${page.brand}`} items={page.problems} />
+        <DetailList title="Какие услуги выполняем" items={["Диагностика", "ТО", "Двигатель", "DSG", "Подвеска", "Электрика", "Тормоза"]} />
+        <DetailList title="Почему Ber Car" items={heroBenefits} />
+      </div>
+    </section>
+  );
+}
+
+function DetailList({ title, items, ordered = false }) {
+  const Tag = ordered ? "ol" : "ul";
+
+  return (
+    <article className="detail-card">
+      <h2>{title}</h2>
+      <Tag>
+        {items.map((item) => <li key={item}>{item}</li>)}
+      </Tag>
+    </article>
+  );
+}
+
+function CasesPage({ cases, navigate }) {
+  return (
+    <section className="section route-section cases-page">
+      <div className="container">
+        <SectionHeading eyebrow="Кейсы" title="Реальные обращения в Ber Car" text="Показываем проблему, что сделали и какой результат получил владелец." />
+        <CaseGrid cases={cases} />
+        <button type="button" className="button button-primary" onClick={() => navigate("/booking")}>Записаться на диагностику</button>
+      </div>
+    </section>
+  );
+}
+
+function ReviewsPage({ reviews, navigate }) {
+  return (
+    <section className="section route-section reviews-page">
+      <div className="container">
+        <SectionHeading eyebrow="Отзывы" title="Что говорят владельцы VAG" text="Спокойные реальные впечатления без лишней рекламы." />
+        <ReviewGrid reviews={reviews} />
+        <button type="button" className="button button-primary" onClick={() => navigate("/booking")}>Оставить заявку</button>
+      </div>
+    </section>
+  );
+}
+
+function CasesPreview({ cases, navigate }) {
+  return (
+    <section className="section cases-page">
+      <div className="container">
+        <SectionHeading eyebrow="Кейсы" title="Как мы подходим к ремонту" text="Коротко о задачах, где сначала нужна нормальная диагностика, а потом решение." />
+        <CaseGrid cases={cases} />
+        <button type="button" className="button button-secondary" onClick={() => navigate("/cases")}>Все кейсы</button>
+      </div>
+    </section>
+  );
+}
+
+function ReviewsPreview({ reviews, navigate }) {
+  return (
+    <section className="section reviews-page">
+      <div className="container">
+        <SectionHeading eyebrow="Отзывы" title="Доверие складывается из понятных деталей" text="Мы объясняем работу до ремонта и не превращаем диагностику в список лишних замен." />
+        <ReviewGrid reviews={reviews} />
+        <button type="button" className="button button-secondary" onClick={() => navigate("/reviews")}>Все отзывы</button>
+      </div>
+    </section>
+  );
+}
+
+function CaseGrid({ cases }) {
+  return (
+    <div className="case-grid">
+      {cases.map((item) => (
+        <article className="case-card" key={item.id || `${item.car}-${item.problem}`}>
+          <span>{item.service || "VAG сервис"}</span>
+          <h3>{item.car}</h3>
+          <p><strong>Проблема:</strong> {item.problem}</p>
+          <p><strong>Что сделали:</strong> {item.work_done}</p>
+          <p><strong>Результат:</strong> {item.result}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ReviewGrid({ reviews }) {
+  return (
+    <div className="review-grid">
+      {reviews.map((item) => (
+        <article className="review-card" key={item.id || `${item.client_name}-${item.car}`}>
+          <span>{"★".repeat(Number(item.rating || 5))}</span>
+          <p>{item.text}</p>
+          <strong>{item.client_name}</strong>
+          <small>{item.car}</small>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function LegacyAdminRedirect({ navigate }) {
+  useEffect(() => {
+    navigate("/bercar-control/login");
+  }, [navigate]);
+
+  return <LoadingScreen text="Открываем вход" />;
+}
+
 function LoginPage({ navigate }) {
-  const [form, setForm] = useState({ email: "admin@bercar.local", password: "admin123" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -773,9 +1145,19 @@ function LoginPage({ navigate }) {
 }
 
 function AdminDashboard({ navigate }) {
+  const location = useLocation();
   const [admin, setAdmin] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [activeResource, setActiveResource] = useState("content-blocks");
+  const section = location.pathname.split("/").at(-1) || "dashboard";
+  const resourceBySection = {
+    content: "content-blocks",
+    services: "services",
+    cases: "cases",
+    reviews: "reviews",
+    contacts: "contacts",
+    settings: "content-blocks",
+  };
+  const activeResource = resourceBySection[section] || "content-blocks";
 
   useEffect(() => {
     api
@@ -810,17 +1192,26 @@ function AdminDashboard({ navigate }) {
         </div>
 
         <nav aria-label="Разделы админки">
-          {resourceKeys.map((key) => (
+          {[
+            ["dashboard", "Dashboard"],
+            ["leads", "Заявки"],
+            ["calendar", "Календарь"],
+            ["services", "Услуги"],
+            ["cases", "Кейсы"],
+            ["reviews", "Отзывы"],
+            ["content", "Контент"],
+            ["contacts", "Контакты"],
+            ["settings", "Настройки"],
+          ].map(([key, label]) => (
             <button
               type="button"
-              className={key === activeResource ? "is-active" : ""}
+              className={section === key ? "is-active" : ""}
               key={key}
-              onClick={() => setActiveResource(key)}
+              onClick={() => navigate(`/bercar-control/${key}`)}
             >
-              {resourceConfig[key].title}
+              {label}
             </button>
           ))}
-          <a href="#leads">Заявки</a>
         </nav>
       </aside>
 
@@ -843,8 +1234,10 @@ function AdminDashboard({ navigate }) {
         </header>
 
         <div className="admin-content">
-          <ResourceCrud resource={activeResource} />
-          <LeadsPanel />
+          {section === "dashboard" ? <DashboardPanel navigate={navigate} /> : null}
+          {section === "leads" ? <LeadsPanel /> : null}
+          {section === "calendar" ? <CalendarPanel /> : null}
+          {resourceBySection[section] ? <ResourceCrud resource={activeResource} /> : null}
         </div>
       </section>
     </main>
@@ -961,8 +1354,8 @@ function ResourceCrud({ resource }) {
         {items.map((item) => (
           <article key={item.id}>
             <button type="button" className="record-main" onClick={() => edit(item)}>
-              <strong>{item.title || item.label || item.section}</strong>
-              <span>{item.subtitle || item.value || item.section || `#${item.id}`}</span>
+              <strong>{item.title || item.label || item.section || item.car || item.client_name}</strong>
+              <span>{item.subtitle || item.value || item.problem || item.text || item.section || `#${item.id}`}</span>
             </button>
             <div className="record-actions">
               <button type="button" onClick={() => edit(item)}>Изменить</button>
@@ -977,13 +1370,106 @@ function ResourceCrud({ resource }) {
   );
 }
 
+function DashboardPanel({ navigate }) {
+  const [payload, setPayload] = useState(null);
+  const [status, setStatus] = useState({ type: "", text: "" });
+
+  useEffect(() => {
+    api.dashboard()
+      .then(setPayload)
+      .catch((error) => setStatus({ type: "error", text: error.message }));
+  }, []);
+
+  const stats = payload?.stats || {};
+
+  return (
+    <section className="admin-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="admin-kicker">Обзор</p>
+          <h2>Dashboard</h2>
+          <span>Заявки, записи и быстрый контроль сервиса.</span>
+        </div>
+        <button type="button" className="admin-primary-button" onClick={() => navigate("/bercar-control/leads")}>Открыть заявки</button>
+      </div>
+      {status.text ? <p className={`admin-message ${status.type}`}>{status.text}</p> : null}
+      <div className="stats-grid">
+        <StatCard label="Новые заявки" value={stats.new_leads || 0} />
+        <StatCard label="На сегодня" value={stats.today_leads || 0} />
+        <StatCard label="Подтверждены" value={stats.confirmed || 0} />
+        <StatCard label="Отменены" value={stats.cancelled || 0} />
+      </div>
+      <div className="records-list">
+        {(payload?.latest || []).map((lead) => (
+          <article key={lead.id}>
+            <button type="button" className="record-main" onClick={() => navigate("/bercar-control/leads")}>
+              <strong>{lead.client_name || lead.name}</strong>
+              <span>{[lead.car_brand, lead.car_model, lead.service_type].filter(Boolean).join(" · ")}</span>
+            </button>
+            <span className={`status-pill ${lead.status}`}>{leadStatusLabel(lead.status)}</span>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StatCard({ label, value }) {
+  return (
+    <article className="stat-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </article>
+  );
+}
+
+function CalendarPanel() {
+  const [date, setDate] = useState(getTodayDate());
+  const [items, setItems] = useState([]);
+  const [status, setStatus] = useState({ type: "", text: "" });
+
+  useEffect(() => {
+    api.calendar(date)
+      .then((payload) => {
+        setItems(payload.items || []);
+        setStatus({ type: "", text: "" });
+      })
+      .catch((error) => setStatus({ type: "error", text: error.message }));
+  }, [date]);
+
+  return (
+    <section className="admin-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="admin-kicker">Календарь</p>
+          <h2>Записи по дням</h2>
+          <span>Занятые слоты, новые заявки и подтвержденные записи.</span>
+        </div>
+        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+      </div>
+      {status.text ? <p className={`admin-message ${status.type}`}>{status.text}</p> : null}
+      <div className="calendar-list">
+        {items.length === 0 ? <div className="empty-state">На выбранный день записей нет</div> : null}
+        {items.map((lead) => (
+          <article key={lead.id} className={`calendar-item status-${lead.status}`}>
+            <strong>{formatShortTime(lead.preferred_time)} · {lead.client_name || lead.name}</strong>
+            <span>{[lead.car_brand, lead.car_model, lead.service_type].filter(Boolean).join(" · ")}</span>
+            <small>{leadStatusLabel(lead.status)} · {lead.source || "form"}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function LeadsPanel() {
   const [leads, setLeads] = useState([]);
   const [status, setStatus] = useState({ type: "", text: "" });
   const [drafts, setDrafts] = useState({});
+  const [filters, setFilters] = useState({ search: "", status: "", date: "", service: "" });
 
   const load = async () => {
-    const payload = await api.listLeads();
+    const payload = await api.listLeads(filters);
     setLeads(payload.items);
     setDrafts(
       Object.fromEntries(
@@ -1003,7 +1489,7 @@ function LeadsPanel() {
 
   useEffect(() => {
     load().catch((error) => setStatus({ type: "error", text: error.message }));
-  }, []);
+  }, [filters.status, filters.date, filters.service]);
 
   const updateLead = async (id, payload, successText) => {
     try {
@@ -1081,6 +1567,35 @@ function LeadsPanel() {
 
       {status.text ? <p className={`admin-message ${status.type}`}>{status.text}</p> : null}
 
+      <div className="lead-filters">
+        <input
+          type="search"
+          placeholder="Поиск по клиенту, телефону или авто"
+          value={filters.search}
+          onChange={(event) => setFilters({ ...filters, search: event.target.value })}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              load().catch((error) => setStatus({ type: "error", text: error.message }));
+            }
+          }}
+        />
+        <select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
+          <option value="">Все статусы</option>
+          <option value="new">Новые</option>
+          <option value="contacted">Связались</option>
+          <option value="confirmed">Подтверждены</option>
+          <option value="in_progress">В работе</option>
+          <option value="done">Готово</option>
+          <option value="cancelled">Отменены</option>
+        </select>
+        <input type="date" value={filters.date} onChange={(event) => setFilters({ ...filters, date: event.target.value })} />
+        <select value={filters.service} onChange={(event) => setFilters({ ...filters, service: event.target.value })}>
+          <option value="">Все услуги</option>
+          {bookingServiceTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+        </select>
+        <button type="button" className="admin-ghost-button" onClick={() => load().catch((error) => setStatus({ type: "error", text: error.message }))}>Найти</button>
+      </div>
+
       <div className="leads-list">
         {leads.length === 0 ? <div className="empty-state">Заявок пока нет</div> : null}
         {leads.map((lead) => {
@@ -1124,6 +1639,7 @@ function LeadsPanel() {
                 ]} />
                 <LeadInfo title="Запись" items={[
                   ["Услуга", lead.service_type],
+                  ["Источник", lead.source || "form"],
                   ["Желаемая дата", formatShortDate(lead.preferred_date)],
                   ["Желаемое время", formatShortTime(lead.preferred_time)],
                   ["Подтверждено", formatDate(lead.scheduled_start_at)],
@@ -1348,6 +1864,28 @@ function normalizeProblemTitle(title) {
   };
 
   return replacements[title] || title;
+}
+
+function serviceDetailPath(title) {
+  const normalized = String(title || "").toLowerCase();
+
+  if (normalized.includes("dsg")) {
+    return "/services/dsg";
+  }
+  if (normalized.includes("диагност")) {
+    return "/services/diagnostics";
+  }
+  if (normalized.includes("то") || normalized.includes("обслуж")) {
+    return "/services/maintenance";
+  }
+  if (normalized.includes("двиг")) {
+    return "/services/engine";
+  }
+  if (normalized.includes("элект")) {
+    return "/services/electric";
+  }
+
+  return "";
 }
 
 function findContactHref(contacts, type) {

@@ -5,15 +5,23 @@ import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { publicRouter } from "./routes/public.js";
 import { requestLogger, securityHeaders } from "./middleware/security.js";
-import { logError } from "./utils/logger.js";
+import { logError, logWarn } from "./utils/logger.js";
+
+const defaultOrigins = [
+  "http://194.67.116.39",
+  "https://194.67.116.39",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+];
 
 export function createApp() {
   const app = express();
   app.set("trust proxy", 1);
-  const origins = (process.env.CLIENT_ORIGIN || "http://127.0.0.1:5173")
+  const envOrigins = (process.env.CLIENT_ORIGIN || "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+  const origins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 
   app.disable("x-powered-by");
   app.use(requestLogger);
@@ -25,7 +33,8 @@ export function createApp() {
           return callback(null, true);
         }
 
-        return callback(new Error("CORS origin denied"));
+        logWarn("cors_origin_denied", { origin });
+        return callback(null, false);
       },
       credentials: true,
     }),

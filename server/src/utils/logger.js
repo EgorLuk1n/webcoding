@@ -1,8 +1,3 @@
-const secretPatterns = [
-  process.env.TELEGRAM_BOT_TOKEN,
-  process.env.JWT_SECRET,
-].filter(Boolean);
-
 export function logInfo(message, meta = {}) {
   console.log(JSON.stringify({ level: "info", message, ...sanitizeMeta(meta), ts: new Date().toISOString() }));
 }
@@ -24,6 +19,11 @@ export function maskSecret(value) {
 }
 
 function sanitizeMeta(meta) {
+  const secretPatterns = [
+    process.env.TELEGRAM_BOT_TOKEN,
+    process.env.JWT_SECRET,
+  ].filter(Boolean);
+
   return JSON.parse(JSON.stringify(meta, (_, value) => {
     if (typeof value !== "string") {
       return value;
