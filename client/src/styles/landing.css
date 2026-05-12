@@ -143,7 +143,12 @@
   position: relative;
   z-index: 2;
   min-width: 0;
+  width: 100%;
   max-width: 720px;
+}
+
+.mobile-title {
+  display: none;
 }
 
 .hero h1 {
@@ -576,7 +581,7 @@
 
 .service-more:hover {
   color: #ffffff !important;
-  transform: translateX(4px);
+  transform: translateX(3px);
 }
 
 .approach {
@@ -1149,22 +1154,57 @@
 
   .hero {
     min-height: auto;
-    padding: 94px 0 54px;
+    padding: 96px 0 56px;
+  }
+
+  .hero-inner {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .hero-copy {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .desktop-title {
+    display: none;
+  }
+
+  .mobile-title {
+    display: inline;
   }
 
   .hero h1 {
     font-size: clamp(34px, 10vw, 42px);
-    line-height: 1.05;
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+    max-width: 100%;
   }
 
   .hero-subtitle {
-    font-size: 19px;
+    font-size: clamp(22px, 6vw, 26px);
+    line-height: 1.15;
   }
 
   .hero-lead {
     margin-bottom: 22px;
-    font-size: 16px;
-    line-height: 1.55;
+    max-width: 100%;
+    font-size: clamp(16px, 4.4vw, 18px);
+    line-height: 1.5;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+
+  .hero-actions .button {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
   }
 
   .hero-benefits,
@@ -1177,6 +1217,9 @@
   }
 
   .hero-image-card {
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 16 / 10;
     border-radius: 22px;
   }
 
@@ -1218,6 +1261,10 @@
 
   .service-more {
     justify-self: start;
+  }
+
+  .service-more:hover {
+    transform: none;
   }
 
   .hero-badge {
@@ -1273,10 +1320,6 @@
     display: none;
   }
 
-  .hero-actions {
-    display: grid;
-  }
-
   .hero-image-card {
     aspect-ratio: 16 / 10;
   }
@@ -1287,6 +1330,10 @@
 
   .hero-benefits span {
     font-size: 14px;
+  }
+
+  .hero {
+    padding-bottom: 46px;
   }
 
   .slot-grid {
@@ -1302,5 +1349,37 @@
   .why-card,
   .final-cta-inner {
     border-radius: 24px;
+  }
+}
+
+@media (max-width: 375px) {
+  .hero {
+    padding-top: 88px;
+  }
+
+  .hero h1 {
+    font-size: clamp(33px, 10vw, 38px);
+  }
+
+  .hero-subtitle {
+    font-size: 21px;
+  }
+
+  .hero-lead {
+    font-size: 16px;
+  }
+
+  .hero-benefits {
+    gap: 7px;
+  }
+}
+
+@media (max-width: 340px) {
+  .hero h1 {
+    font-size: 32px;
+  }
+
+  .hero-subtitle {
+    font-size: 20px;
   }
 }

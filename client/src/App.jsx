@@ -564,10 +564,17 @@ function PublicLanding({ navigate, path }) {
         <div className="container hero-inner">
           <div className="hero-copy">
             <p className="eyebrow">VAG сервис в Калуге</p>
-            <h1>Профессиональный ремонт VAG в Калуге</h1>
-            <p className="hero-subtitle">Диагностика, обслуживание и ремонт без лишних работ</p>
+            <h1>
+              <span className="desktop-title">Профессиональный ремонт VAG в Калуге</span>
+              <span className="mobile-title">Ремонт VAG в Калуге</span>
+            </h1>
+            <p className="hero-subtitle">
+              <span className="desktop-title">Диагностика, обслуживание и ремонт без лишних работ</span>
+              <span className="mobile-title">Диагностика и ремонт без лишних работ</span>
+            </p>
             <p className="hero-lead">
-              Volkswagen, Audi, Škoda, SEAT — точная диагностика, честный ремонт и подбор запчастей под задачу и бюджет.
+              <span className="desktop-title">Volkswagen, Audi, Škoda, SEAT — точная диагностика, честный ремонт и подбор запчастей под задачу и бюджет.</span>
+              <span className="mobile-title">Volkswagen, Audi, Škoda и SEAT — найдём причину неисправности и предложим понятное решение.</span>
             </p>
 
             <div className="hero-actions" aria-label="Основные действия">
